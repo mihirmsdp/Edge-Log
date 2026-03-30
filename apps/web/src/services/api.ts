@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   Account,
   AnalyticsSummary,
   JournalDayResponse,
@@ -14,7 +14,9 @@
   TradesResponse
 } from "@/types/api";
 
-export const API_BASE = "http://localhost:4000/api/v1";
+const rawApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+
+export const API_BASE = rawApiBase && rawApiBase.length > 0 ? rawApiBase : "http://localhost:4000/api/v1";
 
 class ApiError extends Error {
   status: number;
@@ -93,3 +95,4 @@ export const api = {
 };
 
 export { ApiError };
+
