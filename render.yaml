@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: edgelog-api
+    runtime: node
+    rootDir: .
+    buildCommand: npm install && npm run build --workspace @edgelog/api
+    startCommand: npm run start --workspace @edgelog/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
