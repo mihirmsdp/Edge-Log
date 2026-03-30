@@ -1,0 +1,17 @@
+{
+  "name": "edgelog",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "npm run dev --workspace @edgelog/web",
+    "dev:api": "npm run dev --workspace @edgelog/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
