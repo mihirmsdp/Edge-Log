@@ -1,4 +1,4 @@
-﻿export interface Profile {
+export interface Profile {
   id: string;
   email: string;
   name: string | null;
@@ -254,3 +254,113 @@ export interface MarketTopMoversPayload {
   cached: boolean;
   movers: MarketMover[];
 }
+
+export interface MarketSectorTile {
+  sector: string;
+  changePercent: number;
+  advancing: number;
+  declining: number;
+  flat: number;
+  total: number;
+  leaders: string[];
+}
+
+export interface MarketSectorHeatmapPayload {
+  source: string;
+  fetchedAt: string;
+  cached: boolean;
+  sectors: MarketSectorTile[];
+}
+
+export interface MarketOptionLeg {
+  ltp: number | null;
+  oi: number | null;
+  changeOi: number | null;
+  volume: number | null;
+  iv: number | null;
+  delta: number | null;
+}
+
+export interface MarketOptionChainRow {
+  strikePrice: number;
+  pcr: number | null;
+  call: MarketOptionLeg;
+  put: MarketOptionLeg;
+}
+
+export interface MarketOptionLevel {
+  strikePrice: number;
+  oi: number;
+  changeOi: number | null;
+}
+
+export interface MarketOptionHeatmapRow {
+  strikePrice: number;
+  callOi: number | null;
+  callChangeOi: number | null;
+  putOi: number | null;
+  putChangeOi: number | null;
+}
+
+export interface MarketOptionBuildupSummary {
+  sentiment: "Bullish" | "Bearish" | "Mixed" | "Neutral";
+  callWriting: MarketOptionLevel | null;
+  putWriting: MarketOptionLevel | null;
+  callUnwinding: MarketOptionLevel | null;
+  putUnwinding: MarketOptionLevel | null;
+}
+
+export interface MarketOptionRangeBias {
+  bias: "Trend Day" | "Range Day" | "Balanced";
+  tone: "Bullish" | "Bearish" | "Neutral";
+  strength: "Strong" | "Moderate" | "Weak";
+  reasons: string[];
+}
+
+export interface MarketOptionQuickStrategy {
+  stance: "Bullish" | "Bearish" | "Neutral" | "Wait";
+  setup: string;
+  description: string;
+  reasons: string[];
+}
+
+export interface MarketOptionBiasExplainPayload {
+  explanation: string;
+  generatedAt: string;
+  expiry: string | null;
+}
+
+export interface MarketOptionChainPayload {
+  source: string;
+  fetchedAt: string;
+  cached: boolean;
+  underlying: {
+    key: string;
+    label: string;
+  };
+  expiries: string[];
+  selectedExpiry: string | null;
+  summary: {
+    spot: number | null;
+    overallPcr: number | null;
+    maxPain: number | null;
+    atmStrike: number | null;
+    atmStraddle: number | null;
+    expectedMove: number | null;
+    strongestCallOiStrike: number | null;
+    strongestPutOiStrike: number | null;
+  };
+  supportResistance: {
+    support: MarketOptionLevel[];
+    resistance: MarketOptionLevel[];
+  };
+  buildup: MarketOptionBuildupSummary;
+  rangeBias: MarketOptionRangeBias;
+  quickStrategy: MarketOptionQuickStrategy;
+  heatmapRows: MarketOptionHeatmapRow[];
+  rows: MarketOptionChainRow[];
+}
+
+
+
+

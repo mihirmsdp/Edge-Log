@@ -1,4 +1,4 @@
-ï»¿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/services/api";
@@ -84,6 +84,63 @@ function SpotlightCard({ title, eyebrow, children, className = "" }: { title: st
   );
 }
 
+function SectorHeatTile({
+  sector,
+  changePercent,
+  advancing,
+  declining,
+  total,
+  leaders
+}: {
+  sector: string;
+  changePercent: number;
+  advancing: number;
+  declining: number;
+  total: number;
+  leaders: string[];
+}) {
+  const positive = changePercent >= 0;
+  const intensity = Math.min(1, Math.abs(changePercent) / 2.5);
+  const background = positive ? `rgba(34,197,94,${0.12 + intensity * 0.2})` : `rgba(239,68,68,${0.12 + intensity * 0.2})`;
+  const borderColor = positive ? `rgba(34,197,94,${0.25 + intensity * 0.35})` : `rgba(239,68,68,${0.25 + intensity * 0.35})`;
+
+  return (
+    <div className="rounded-[24px] border p-4 transition hover:-translate-y-0.5" style={{ backgroundColor: background, borderColor }}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-primary">{sector}</p>
+          <p className="mt-1 text-xs text-muted">{advancing} up / {declining} down / {total} names</p>
+        </div>
+        <div className={classNames("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium", positive ? "bg-profit/12 text-profit" : "bg-loss/12 text-loss")}>
+          <ArrowIcon positive={positive} />
+          <span className="mono">{Math.abs(changePercent).toFixed(2)}%</span>
+        </div>
+      </div>
+      <div className="mt-5 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Leaders</p>
+          <p className="mono mt-2 text-sm text-primary">{leaders.join(" / ")}</p>
+        </div>
+        <div className="flex gap-1.5">
+          {Array.from({ length: Math.min(total, 6) }).map((_, index) => {
+            const active = index < advancing;
+            const down = !active && index < advancing + declining;
+            return (
+              <span
+                key={`${sector}-${index}`}
+                className={classNames(
+                  "h-8 w-2 rounded-full",
+                  active ? "bg-profit" : down ? "bg-loss" : "bg-border"
+                )}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function DashboardPage() {
@@ -116,6 +173,7 @@ export function DashboardPage() {
     queryKey: ["analytics-summary", "dashboard", summaryParams.toString()],
     queryFn: () => api.getAnalyticsSummary(summaryParams)
   });
+
 
   const summary = summaryQuery.data;
 
@@ -207,7 +265,7 @@ export function DashboardPage() {
               <select value={selectedAccount?.id ?? ""} onChange={(event) => setSelectedAccountId(event.target.value)} className="field min-w-[220px] md:min-w-[240px]">
                 {(accountsQuery.data?.accounts ?? []).map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.name} Â· {account.currency}
+                    {account.name} · {account.currency}
                   </option>
                 ))}
               </select>
@@ -380,7 +438,7 @@ export function DashboardPage() {
                       key={day.date}
                       className="rounded-2xl border border-border p-3 text-xs"
                       style={{ backgroundColor: day.pnl >= 0 ? `rgba(34,197,94,${0.15 + opacity * 0.55})` : `rgba(239,68,68,${0.15 + opacity * 0.55})` }}
-                      title={`${formatDate(day.date)} â€¢ ${formatCurrency(day.pnl)}`}
+                      title={`${formatDate(day.date)} • ${formatCurrency(day.pnl)}`}
                     >
                       <p className="mono">{day.date.slice(-2)}</p>
                     </div>
@@ -389,6 +447,7 @@ export function DashboardPage() {
               </div>
             </Panel>
           </div>
+
 
           <div className="grid gap-6 xl:grid-cols-2">
             {[summary.bestTrade, summary.worstTrade].map((trade, index) => (
@@ -411,7 +470,7 @@ export function DashboardPage() {
             ))}
           </div>
 
-          <Panel className="p-0 overflow-hidden">
+          <Panel className="overflow-hidden p-0">
             <div className="flex flex-col gap-3 border-b border-border px-6 py-5 md:flex-row md:items-center md:justify-between md:px-7">
               <div>
                 <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Flow</p>
@@ -459,5 +518,8 @@ export function DashboardPage() {
 function formatDateTime(value: string | null | undefined) {
   return formatDate(value, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
+
+
+
 
 

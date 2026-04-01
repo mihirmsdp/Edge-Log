@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "@/services/api";
@@ -8,7 +8,8 @@ import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { TradesPage } from "@/features/trades/TradesPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { PlaybookPage } from "@/features/playbook/PlaybookPage";
-import { JournalPage } from "@/features/journal/JournalPage";
+import { JournalPage } from '@/features/journal/JournalPage';
+import { MarketPage } from '@/features/market/MarketPage';
 import { classNames, formatCurrency } from "@/lib/format";
 import { useTheme } from "@/theme/theme";
 
@@ -16,6 +17,7 @@ const navItems = [
   ["/", "Dashboard"],
   ["/trades", "Trade Log"],
   ["/analytics", "Analytics"],
+  ["/market", "Market"],
   ["/playbook", "Playbook"],
   ["/journal", "Journal"]
 ] as const;
@@ -251,6 +253,7 @@ function ProtectedApp() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/trades" element={<TradesPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/market" element={<MarketPage />} />
         <Route path="/playbook" element={<PlaybookPage />} />
         <Route path="/journal" element={<JournalPage />} />
       </Routes>
@@ -285,3 +288,6 @@ export function App() {
     </Routes>
   );
 }
+
+
+

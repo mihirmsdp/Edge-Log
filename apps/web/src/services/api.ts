@@ -4,6 +4,9 @@ import type {
   JournalDayResponse,
   JournalEntry,
   JournalCalendarDay,
+  MarketOptionBiasExplainPayload,
+  MarketOptionChainPayload,
+  MarketSectorHeatmapPayload,
   MarketTickerStripPayload,
   MarketTopMoversPayload,
   NiftyLivePricePayload,
@@ -91,7 +94,10 @@ export const api = {
   deleteJournalEntry: (id: string) => request<void>(`/journal-entries/${id}`, { method: "DELETE" }),
   getJournalLivePrice: () => request<NiftyLivePricePayload>("/journal/live-price"),
   getMarketTickerStrip: () => request<MarketTickerStripPayload>("/market/ticker-strip"),
-  getMarketTopMovers: () => request<MarketTopMoversPayload>("/market/top-movers")
+  getMarketTopMovers: () => request<MarketTopMoversPayload>("/market/top-movers"),
+  getMarketSectorHeatmap: () => request<MarketSectorHeatmapPayload>("/market/sector-heatmap"),
+  getMarketNiftyOptionChain: (expiry?: string) => request<MarketOptionChainPayload>(`/market/options/nifty-chain${expiry ? `?expiry=${encodeURIComponent(expiry)}` : ""}`),
+  explainMarketNiftyBias: (expiry?: string) => request<MarketOptionBiasExplainPayload>("/market/options/nifty-chain/explain", { method: "POST", body: JSON.stringify({ expiry }) })
 };
 
 export { ApiError };

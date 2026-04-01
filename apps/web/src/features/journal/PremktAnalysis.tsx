@@ -314,8 +314,8 @@ function PremarketContent({ payload }: { payload: PremarketAnalysisPayload }) {
 
       <InfoStrip title="Global Cues" body={`${payload.analysis.globalCues.sentiment} · ${payload.analysis.globalCues.notes}`} />
       <InfoStrip title="Options" body={payload.analysis.optionsNote} />
-      <InfoStrip title="Watchlist" body={payload.analysis.watchlist.map((item) => item.symbol).join(" · ")} />
-      <InfoStrip title="Risk Events" body={payload.analysis.riskEvents.join(" · ")} tone="loss" />
+      <InfoStrip title="Watchlist" body={payload.analysis.watchlist.map((item) => item.symbol).join(" / ")} />
+      <InfoStrip title="Risk Events" body={payload.analysis.riskEvents.join(" / ")} tone="loss" />
       <p className="text-xs text-muted">{payload.analysis.disclaimer}</p>
     </div>
   );
@@ -447,4 +447,5 @@ function ListPanel({ title, items, tone }: { title: string; items: string[]; ton
     </section>
   );
 }
+
 
