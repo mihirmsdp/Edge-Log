@@ -10,6 +10,8 @@ import type {
   MarketTickerStripPayload,
   MarketTopMoversPayload,
   NiftyLivePricePayload,
+  UpstoxConfigResponse,
+  UpstoxStatusResponse,
   PlaybookSetup,
   Profile,
   Tag,
@@ -93,6 +95,9 @@ export const api = {
   updateJournalEntry: (id: string, payload: unknown) => request<{ journalEntry: JournalEntry }>(`/journal-entries/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteJournalEntry: (id: string) => request<void>(`/journal-entries/${id}`, { method: "DELETE" }),
   getJournalLivePrice: () => request<NiftyLivePricePayload>("/journal/live-price"),
+  getUpstoxConfig: () => request<UpstoxConfigResponse>("/upstox/config"),
+  getUpstoxStatus: () => request<UpstoxStatusResponse>("/upstox/status"),
+  disconnectUpstox: () => request<void>("/upstox/disconnect", { method: "POST" }),
   getMarketTickerStrip: () => request<MarketTickerStripPayload>("/market/ticker-strip"),
   getMarketTopMovers: () => request<MarketTopMoversPayload>("/market/top-movers"),
   getMarketSectorHeatmap: () => request<MarketSectorHeatmapPayload>("/market/sector-heatmap"),
@@ -101,4 +106,6 @@ export const api = {
 };
 
 export { ApiError };
+
+
 

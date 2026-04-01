@@ -244,6 +244,55 @@ export interface Database {
           }
         ];
       };
+      upstox_connections: {
+        Row: {
+          user_id: string;
+          upstox_user_id: string | null;
+          upstox_user_name: string | null;
+          upstox_email: string | null;
+          broker: string;
+          access_token: string | null;
+          extended_token: string | null;
+          exchanges: string[];
+          products: string[];
+          connected_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          upstox_user_id?: string | null;
+          upstox_user_name?: string | null;
+          upstox_email?: string | null;
+          broker?: string;
+          access_token?: string | null;
+          extended_token?: string | null;
+          exchanges?: string[];
+          products?: string[];
+          connected_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          upstox_user_id?: string | null;
+          upstox_user_name?: string | null;
+          upstox_email?: string | null;
+          broker?: string;
+          access_token?: string | null;
+          extended_token?: string | null;
+          exchanges?: string[];
+          products?: string[];
+          connected_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "upstox_connections_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       premkt_analyses: {
         Row: {
           id: string;
@@ -385,6 +434,8 @@ export interface Database {
     CompositeTypes: Record<string, never>;
   };
 }
+
+
 
 
 

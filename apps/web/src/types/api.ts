@@ -225,6 +225,26 @@ export interface NiftyLivePricePayload {
   fetchedAt: string;
 }
 
+export interface UpstoxConnection {
+  user_id: string;
+  upstox_user_id: string | null;
+  upstox_user_name: string | null;
+  upstox_email: string | null;
+  broker: string;
+  exchanges: string[];
+  products: string[];
+  connected_at: string;
+  updated_at: string;
+}
+
+export interface UpstoxStatusResponse {
+  connected: boolean;
+  connection: UpstoxConnection | null;
+}
+
+export interface UpstoxConfigResponse {
+  enabled: boolean;
+}
 export interface MarketTicker {
   id: string;
   label: string;
@@ -360,6 +380,7 @@ export interface MarketOptionChainPayload {
   heatmapRows: MarketOptionHeatmapRow[];
   rows: MarketOptionChainRow[];
 }
+
 
 
 

@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api } from "@/services/api";
-import { classNames, formatCurrency, formatDate } from "@/lib/format";
+import { API_BASE, api } from "@/services/api";
+import { classNames, formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+
+import { useLocation } from "react-router-dom";
 
 type MarketMode = "market" | "option-pro";
 const MARKET_MODE_STORAGE_KEY = "edgelog-market-mode";
@@ -36,6 +38,16 @@ function CalendarIcon() {
   );
 }
 
+function PlugIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 4v4" />
+      <path d="M13 4v4" />
+      <path d="M6 8h8v2a4 4 0 0 1-8 0V8Z" />
+      <path d="M10 12v4" />
+    </svg>
+  );
+}
 function ChevronIcon({ open = false }: { open?: boolean }) {
   return (
     <svg
@@ -419,6 +431,13 @@ function OptionProView() {
   const selectedExpiryLabel = selectedExpiry
     ? formatDate(selectedExpiry, { day: "2-digit", month: "long", year: "numeric" })
     : "Select expiry";
+  const handleChainRefresh = () => {
+    setShouldFetch(true);
+    setBiasExplanation("");
+    setBiasExplanationOpen(false);
+    void optionChainQuery.refetch();
+  };
+
   const changeOiChartData = (payload?.rows ?? []).map((row) => ({
     strike: row.strikePrice,
     callChangeOi: row.call.changeOi ?? 0,
@@ -504,12 +523,7 @@ function OptionProView() {
             </div>
             <button
               type="button"
-              onClick={() => {
-                setShouldFetch(true);
-                setBiasExplanation("");
-                setBiasExplanationOpen(false);
-                void optionChainQuery.refetch();
-              }}
+              onClick={handleChainRefresh}
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-3 text-sm font-medium text-primary transition hover:border-accent"
             >
               <RefreshIcon spinning={optionChainQuery.isFetching} />
@@ -661,12 +675,21 @@ function OptionProView() {
 
       <div className="space-y-4">
         <section className="dashboard-panel p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Flow</p>
               <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">Change in OI</h3>
               <p className="mt-2 text-sm text-muted">Green bars show call change in OI, red bars show put change in OI around ATM. Dashed cyan line marks spot context.</p>
             </div>
+            <button
+              type="button"
+              onClick={handleChainRefresh}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-[color:var(--dashboard-chip)] text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={optionChainQuery.isFetching}
+              aria-label="Refresh option chain"
+            >
+              <RefreshIcon spinning={optionChainQuery.isFetching} />
+            </button>
           </div>
           <div className="mt-6 h-64 md:h-72">
             <ResponsiveContainer>
@@ -703,7 +726,7 @@ function OptionProView() {
                   labelStyle={{ color: "var(--text-primary)" }}
                   itemStyle={{ color: "var(--text-primary)" }}
                   labelFormatter={(value) => `Strike ${formatCurrency(Number(value))}`}
-                  formatter={(value: number, name: string) => [formatCompact(value), name === "callChangeOi" ? "Call dOI" : "Put dOI"]}
+                  formatter={(value: number) => formatCompact(value)}
                 />
                 <Bar dataKey="callChangeOi" name="Call dOI" fill="var(--profit)" radius={[6, 6, 0, 0]} maxBarSize={22} />
                 <Bar dataKey="putChangeOi" name="Put dOI" fill="var(--loss)" radius={[6, 6, 0, 0]} maxBarSize={22} />
@@ -805,6 +828,8 @@ function formatCompact(value: number | null | undefined) {
 }
 
 export function MarketPage() {
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<MarketMode>(() => {
     if (typeof window === "undefined") {
       return "market";
@@ -814,9 +839,44 @@ export function MarketPage() {
     return stored === "option-pro" ? "option-pro" : "market";
   });
 
+  const upstoxConfigQuery = useQuery({
+    queryKey: ["upstox-config"],
+    queryFn: api.getUpstoxConfig,
+    retry: false
+  });
+
+  const upstoxStatusQuery = useQuery({
+    queryKey: ["upstox-status"],
+    queryFn: api.getUpstoxStatus,
+    retry: false
+  });
+
+  const disconnectUpstoxMutation = useMutation({
+    mutationFn: api.disconnectUpstox,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["upstox-status"] });
+    }
+  });
+
+  const callbackState = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const status = params.get("upstox");
+    const message = params.get("message");
+    return {
+      status,
+      message
+    };
+  }, [location.search]);
+
   useEffect(() => {
     window.localStorage.setItem(MARKET_MODE_STORAGE_KEY, mode);
   }, [mode]);
+
+  const upstoxEnabled = upstoxConfigQuery.data?.enabled ?? false;
+  const upstoxConnection = upstoxStatusQuery.data?.connection ?? null;
+  const connectUpstox = () => {
+    window.location.href = `${API_BASE}/upstox/connect?returnTo=${encodeURIComponent("/market")}`;
+  };
 
   return (
     <div className="space-y-6 pb-10 md:space-y-7">
@@ -849,10 +909,76 @@ export function MarketPage() {
         </div>
       </div>
 
+      {callbackState.status === "connected" ? (
+        <div className="rounded-2xl border border-profit/30 bg-profit/8 px-4 py-3 text-sm text-profit">
+          Upstox account connected successfully.
+        </div>
+      ) : null}
+      {callbackState.status === "error" ? (
+        <div className="rounded-2xl border border-loss/30 bg-loss/8 px-4 py-3 text-sm text-loss">
+          {callbackState.message ?? "Unable to connect Upstox."}
+        </div>
+      ) : null}
+
+      <section className="dashboard-panel p-5 md:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Broker</p>
+            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">Upstox connection</h3>
+            <p className="mt-2 max-w-2xl text-sm text-muted">Connect your Upstox account to enable broker-linked workflows inside EdgeLog, while keeping your main app auth unchanged.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {upstoxConnection ? (
+              <button
+                type="button"
+                onClick={() => disconnectUpstoxMutation.mutate()}
+                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-3 text-sm font-medium text-primary transition hover:border-loss disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={disconnectUpstoxMutation.isPending}
+              >
+                <PlugIcon />
+                Disconnect
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={connectUpstox}
+                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-3 text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!upstoxEnabled || upstoxConfigQuery.isLoading}
+              >
+                <PlugIcon />
+                Connect Upstox
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted">Status</p>
+            <p className="mt-3 text-base font-semibold text-primary">{upstoxConnection ? "Connected" : upstoxEnabled ? "Not connected" : "OAuth not configured"}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted">Broker user</p>
+            <p className="mt-3 text-base font-semibold text-primary">{upstoxConnection?.upstox_user_name ?? upstoxConnection?.upstox_user_id ?? "-"}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted">Connected at</p>
+            <p className="mt-3 text-base font-semibold text-primary">{upstoxConnection?.connected_at ? formatDateTime(upstoxConnection.connected_at) : "-"}</p>
+          </div>
+        </div>
+      </section>
+
       {mode === "market" ? <MarketModeView /> : <OptionProView />}
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 

@@ -1,9 +1,9 @@
-import { env, isProduction } from "./env.js";
+import { env } from "./env.js";
 
 export const accessTokenCookieName = "edgelog_access_token";
 export const refreshTokenCookieName = "edgelog_refresh_token";
 
-const sameSite = isProduction ? "none" : "lax";
+const sameSite = env.COOKIE_SAME_SITE;
 
 export const accessCookieOptions = {
   httpOnly: true,

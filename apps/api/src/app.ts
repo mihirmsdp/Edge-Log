@@ -8,9 +8,18 @@ import { apiRouter } from "./routes/index.js";
 
 export const app = express();
 
+const allowedOrigins = Array.from(new Set([env.CLIENT_URL, ...(env.ALLOWED_ORIGINS ?? [])]));
+
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true
   })
 );
