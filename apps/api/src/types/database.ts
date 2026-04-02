@@ -384,6 +384,57 @@ export interface Database {
           }
         ];
       };
+      broker_trade_imports: {
+        Row: {
+          id: string;
+          user_id: string;
+          broker: string;
+          import_key: string;
+          broker_trade_ids: string[];
+          imported_trade_id: string | null;
+          raw_payload: Json;
+          normalized_payload: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          broker: string;
+          import_key: string;
+          broker_trade_ids?: string[];
+          imported_trade_id?: string | null;
+          raw_payload?: Json;
+          normalized_payload?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          broker?: string;
+          import_key?: string;
+          broker_trade_ids?: string[];
+          imported_trade_id?: string | null;
+          raw_payload?: Json;
+          normalized_payload?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "broker_trade_imports_imported_trade_id_fkey";
+            columns: ["imported_trade_id"];
+            isOneToOne: false;
+            referencedRelation: "trades";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "broker_trade_imports_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       trade_tags: {
         Row: {
           trade_id: string;
@@ -434,6 +485,7 @@ export interface Database {
     CompositeTypes: Record<string, never>;
   };
 }
+
 
 
 

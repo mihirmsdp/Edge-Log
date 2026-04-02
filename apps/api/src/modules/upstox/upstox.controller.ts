@@ -3,6 +3,8 @@ import { env } from "../../config/env.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 import { getAuthContext } from "../../utils/get-auth-context.js";
 import { consumeUpstoxState, deleteUpstoxConnection, exchangeUpstoxCode, getUpstoxAuthorizeUrl, getUpstoxConnection, saveUpstoxConnection } from "./upstox.service.js";
+import { importUpstoxTrades, getUpstoxImportPreview } from "./upstox-import.service.js";
+import { importUpstoxTradesSchema, upstoxTradeImportQuerySchema } from "./upstox.schemas.js";
 
 function getFrontendRedirect(path: string, status: "connected" | "error", message?: string) {
   const url = new URL(path.startsWith("/") ? path : "/market", env.CLIENT_URL);
@@ -57,3 +59,18 @@ export const getUpstoxConfig = asyncHandler(async (_request: Request, response: 
     enabled: Boolean(env.UPSTOX_CLIENT_ID && env.UPSTOX_CLIENT_SECRET && env.UPSTOX_REDIRECT_URI && env.UPSTOX_STATE_SECRET)
   });
 });
+
+export const listUpstoxTradeImportPreview = asyncHandler(async (request: Request, response: Response) => {
+  const { user } = getAuthContext(request);
+  const query = upstoxTradeImportQuerySchema.parse(request.query);
+  const result = await getUpstoxImportPreview(user.id, query);
+  response.json(result);
+});
+
+export const runUpstoxTradeImport = asyncHandler(async (request: Request, response: Response) => {
+  const { supabase, user } = getAuthContext(request);
+  const payload = importUpstoxTradesSchema.parse(request.body);
+  const result = await importUpstoxTrades(supabase, user.id, payload);
+  response.status(201).json(result);
+});
+

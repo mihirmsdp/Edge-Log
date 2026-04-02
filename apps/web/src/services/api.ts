@@ -1,22 +1,24 @@
 import type {
   Account,
   AnalyticsSummary,
+  JournalCalendarDay,
   JournalDayResponse,
   JournalEntry,
-  JournalCalendarDay,
   MarketOptionBiasExplainPayload,
   MarketOptionChainPayload,
   MarketSectorHeatmapPayload,
   MarketTickerStripPayload,
   MarketTopMoversPayload,
   NiftyLivePricePayload,
-  UpstoxConfigResponse,
-  UpstoxStatusResponse,
   PlaybookSetup,
   Profile,
   Tag,
   Trade,
-  TradesResponse
+  TradesResponse,
+  UpstoxConfigResponse,
+  UpstoxStatusResponse,
+  UpstoxTradeImportPreviewResponse,
+  UpstoxTradeImportRunResponse
 } from "@/types/api";
 
 const rawApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -98,6 +100,8 @@ export const api = {
   getUpstoxConfig: () => request<UpstoxConfigResponse>("/upstox/config"),
   getUpstoxStatus: () => request<UpstoxStatusResponse>("/upstox/status"),
   disconnectUpstox: () => request<void>("/upstox/disconnect", { method: "POST" }),
+  getUpstoxTradeImportPreview: (params: URLSearchParams) => request<UpstoxTradeImportPreviewResponse>(`/upstox/imports/trades?${params.toString()}`),
+  runUpstoxTradeImport: (payload: { accountId: string; mode: "day" | "range"; startDate?: string; endDate?: string; importKeys: string[] }) => request<UpstoxTradeImportRunResponse>("/upstox/imports/trades", { method: "POST", body: JSON.stringify(payload) }),
   getMarketTickerStrip: () => request<MarketTickerStripPayload>("/market/ticker-strip"),
   getMarketTopMovers: () => request<MarketTopMoversPayload>("/market/top-movers"),
   getMarketSectorHeatmap: () => request<MarketSectorHeatmapPayload>("/market/sector-heatmap"),
@@ -106,6 +110,3 @@ export const api = {
 };
 
 export { ApiError };
-
-
-

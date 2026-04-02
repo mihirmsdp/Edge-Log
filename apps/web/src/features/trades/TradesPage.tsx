@@ -1,12 +1,12 @@
+
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/services/api";
-import type { Trade } from "@/types/api";
-import { classNames, formatCurrency, formatDate, formatPercent } from "@/lib/format";
+import type { Trade, UpstoxImportPreviewTrade } from "@/types/api";
+import { classNames, formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/format";
 import { calcHoldTime, calcPnL, calcRMultiple, calcRisk } from "@/utils/calc";
 
 const assetClasses = ["equity", "future", "option"] as const;
@@ -31,6 +31,8 @@ const tradeSchema = z.object({
 });
 
 type TradeFormValues = z.infer<typeof tradeSchema>;
+type ImportMode = "day" | "range";
+type AccountOption = { id: string; name: string; currency: string };
 
 function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
   return (
@@ -40,6 +42,16 @@ function StarIcon({ filled, className }: { filled: boolean; className?: string }
         stroke="currentColor"
         strokeWidth="1.4"
       />
+    </svg>
+  );
+}
+
+function ImportIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 3.5v8" />
+      <path d="m6.5 8.5 3.5 3.5 3.5-3.5" />
+      <path d="M4 14.5h12" />
     </svg>
   );
 }
@@ -57,6 +69,9 @@ function normalizeAssetClass(value: string | null | undefined): TradeFormValues[
   return "equity";
 }
 
+function getTodayValue() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function TradesPage() {
   const queryClient = useQueryClient();
@@ -67,6 +82,7 @@ export function TradesPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const params = useMemo(() => {
     const next = new URLSearchParams({ page: String(page), pageSize: "25", sortBy, sortOrder });
@@ -77,6 +93,7 @@ export function TradesPage() {
   const tradesQuery = useQuery({ queryKey: ["trades", params.toString()], queryFn: () => api.getTrades(params) });
   const tagsQuery = useQuery({ queryKey: ["tags"], queryFn: api.getTags });
   const accountsQuery = useQuery({ queryKey: ["accounts"], queryFn: api.getAccounts });
+  const upstoxStatusQuery = useQuery({ queryKey: ["upstox-status"], queryFn: api.getUpstoxStatus, retry: false });
 
   useEffect(() => {
     setSelected([]);
@@ -120,14 +137,16 @@ export function TradesPage() {
           <p className="mono text-xs uppercase tracking-[0.35em] text-accent">Trade Log</p>
           <h2 className="mt-3 text-4xl font-bold">Execution review board</h2>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => setImportModalOpen(true)} className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-primary">
+            <span className="inline-flex items-center gap-2"><ImportIcon />Import from Upstox</span>
+          </button>
           <button type="button" onClick={() => deleteMutation.mutate(selected)} disabled={selected.length === 0 || deleteMutation.isPending} className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted disabled:opacity-50">
             Delete selected ({selected.length})
           </button>
           <button type="button" onClick={openCreate} className="mono rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-[var(--accent-contrast)]">New trade</button>
         </div>
       </div>
-
       <section className="card-surface rounded-3xl p-5">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
           <input type="date" value={filters.from} onChange={(event) => { setFilters((current) => ({ ...current, from: event.target.value })); setPage(1); }} className="rounded-2xl border border-border bg-surface px-4 py-3" />
@@ -156,7 +175,7 @@ export function TradesPage() {
               <tr>
                 <th className="px-4 py-3"><input type="checkbox" checked={selected.length > 0 && selected.length === trades.length} onChange={(event) => setSelected(event.target.checked ? trades.map((trade) => trade.id) : [])} /></th>
                 {[
-                  ["entryDate", "Date"], ["symbol", "Symbol"], ["direction", "Direction"], ["entryPrice", "Entry"], ["exitPrice", "Exit"], ["size", "Size"], ["netPnl", "P&L ?"], ["netPnlPercent", "P&L %"], ["rrMultiple", "R-multiple"], ["hold", "Hold time"], ["setupName", "Setup"], ["rating", "Rating"]
+                  ["entryDate", "Date"], ["symbol", "Symbol"], ["direction", "Direction"], ["entryPrice", "Entry"], ["exitPrice", "Exit"], ["size", "Size"], ["netPnl", "P&L INR"], ["netPnlPercent", "P&L %"], ["rrMultiple", "R-multiple"], ["hold", "Hold time"], ["setupName", "Setup"], ["rating", "Rating"]
                 ].map(([key, label]) => (
                   <th key={key} className="px-4 py-3">
                     <button type="button" onClick={() => key !== "netPnlPercent" && key !== "hold" ? toggleSort(key) : undefined} className="flex items-center gap-2">
@@ -173,7 +192,7 @@ export function TradesPage() {
                 const pnlPercent = trade.entry_price && trade.exit_price ? calcPnL(trade.entry_price, trade.exit_price, 1, trade.direction, 0).percent : 0;
                 const profitable = (trade.net_pnl ?? 0) >= 0;
                 return (
-                  <tr key={trade.id} className="border-t border-border/80" style={{ borderLeft: `4px solid ${profitable ? '#22c55e' : '#ef4444'}` }}>
+                  <tr key={trade.id} className="border-t border-border/80" style={{ borderLeft: `4px solid ${profitable ? "#22c55e" : "#ef4444"}` }}>
                     <td className="px-4 py-3"><input type="checkbox" checked={selected.includes(trade.id)} onChange={() => setSelected((current) => current.includes(trade.id) ? current.filter((id) => id !== trade.id) : [...current, trade.id])} /></td>
                     <td className="px-4 py-3 text-muted">{formatDate(trade.entry_date)}</td>
                     <td className="mono px-4 py-3">{trade.symbol}</td>
@@ -212,11 +231,213 @@ export function TradesPage() {
           onClose={() => setModalOpen(false)}
         />
       )}
+
+      {importModalOpen && (
+        <TradeImportModal
+          accounts={accountsQuery.data?.accounts ?? []}
+          upstoxConnected={Boolean(upstoxStatusQuery.data?.connected)}
+          onClose={() => setImportModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
-function TradeFormModal({ trade, accounts, onClose }: { trade: Trade | null; accounts: Array<{ id: string; name: string; currency: string }>; onClose: () => void }) {
+function TradeImportModal({ accounts, upstoxConnected, onClose }: { accounts: AccountOption[]; upstoxConnected: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [mode, setMode] = useState<ImportMode>("day");
+  const [startDate, setStartDate] = useState(getTodayValue());
+  const [endDate, setEndDate] = useState(getTodayValue());
+  const [selectedImportKeys, setSelectedImportKeys] = useState<string[]>([]);
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+
+  useEffect(() => {
+    if (!accountId && accounts[0]?.id) {
+      setAccountId(accounts[0].id);
+    }
+  }, [accountId, accounts]);
+
+  const previewParams = useMemo(() => {
+    const params = new URLSearchParams({ mode });
+    if (mode === "range") {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+    }
+    return params;
+  }, [mode, startDate, endDate]);
+
+  const previewQuery = useQuery({
+    queryKey: ["upstox-trade-import-preview", previewParams.toString()],
+    queryFn: () => api.getUpstoxTradeImportPreview(previewParams),
+    enabled: upstoxConnected,
+    retry: false
+  });
+  useEffect(() => {
+    const importable = (previewQuery.data?.trades ?? []).filter((item) => !item.imported).map((item) => item.importKey);
+    setSelectedImportKeys(importable);
+  }, [previewQuery.data?.trades]);
+
+  const importMutation = useMutation({
+    mutationFn: () => api.runUpstoxTradeImport({
+      accountId,
+      mode,
+      startDate: mode === "range" ? startDate : undefined,
+      endDate: mode === "range" ? endDate : undefined,
+      importKeys: selectedImportKeys
+    }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["trades"] });
+      await queryClient.invalidateQueries({ queryKey: ["analytics-summary"] });
+      await queryClient.invalidateQueries({ queryKey: ["upstox-trade-import-preview"] });
+      onClose();
+    }
+  });
+
+  const trades = previewQuery.data?.trades ?? [];
+  const selectableTrades = trades.filter((item) => !item.imported);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--overlay)] px-4 py-8">
+      <div className="card-surface w-full max-w-6xl rounded-[32px] p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-semibold">Import from Upstox</h3>
+            <p className="text-sm text-muted">Review broker executions, pair them into journal-ready trades, and import only what you want.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-2xl border border-border px-3 py-2 text-muted">Close</button>
+        </div>
+
+        {!upstoxConnected ? (
+          <div className="mt-6 rounded-2xl border border-loss/30 bg-loss/10 px-4 py-4 text-sm text-loss">
+            Connect Upstox from the Market page first, then come back here to import broker trades.
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <Field label="Account">
+                  <select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="field">
+                    {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Import mode">
+                  <div className="flex gap-2">
+                    {([
+                      ["day", "Today"],
+                      ["range", "Date range"]
+                    ] as const).map(([value, label]) => (
+                      <button key={value} type="button" onClick={() => setMode(value)} className={classNames("flex-1 rounded-2xl border px-4 py-3 text-sm", mode === value ? "border-accent bg-accent/10 text-accent" : "border-border text-muted")}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                {mode === "range" ? (
+                  <>
+                    <Field label="Start date"><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="field" /></Field>
+                    <Field label="End date"><input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="field" /></Field>
+                  </>
+                ) : null}
+              </div>
+              <button type="button" onClick={() => void previewQuery.refetch()} className="mono rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-[var(--accent-contrast)]">
+                Refresh broker trades
+              </button>
+            </div>
+
+            {previewQuery.error ? <div className="mt-4 rounded-2xl border border-loss/30 bg-loss/10 px-4 py-3 text-sm text-loss">{previewQuery.error.message}</div> : null}
+            {importMutation.error ? <div className="mt-4 rounded-2xl border border-loss/30 bg-loss/10 px-4 py-3 text-sm text-loss">{importMutation.error.message}</div> : null}
+
+            <div className="mt-6 grid gap-4 md:grid-cols-4">
+              <PreviewRow label="Found" value={String(trades.length)} />
+              <PreviewRow label="Ready" value={String(selectableTrades.length)} />
+              <PreviewRow label="Selected" value={String(selectedImportKeys.length)} />
+              <PreviewRow label="Imported already" value={String(trades.filter((item) => item.imported).length)} />
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-3xl border border-border">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1150px] text-left text-sm">
+                  <thead className="bg-surface text-muted">
+                    <tr>
+                      <th className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectableTrades.length > 0 && selectedImportKeys.length === selectableTrades.length}
+                          onChange={(event) => setSelectedImportKeys(event.target.checked ? selectableTrades.map((item) => item.importKey) : [])}
+                        />
+                      </th>
+                      <th className="px-4 py-3">Symbol</th>
+                      <th className="px-4 py-3">Direction</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Entry</th>
+                      <th className="px-4 py-3">Exit</th>
+                      <th className="px-4 py-3">Size</th>
+                      <th className="px-4 py-3">Entry time</th>
+                      <th className="px-4 py-3">Exit time</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Broker legs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trades.map((item) => {
+                      const checked = selectedImportKeys.includes(item.importKey);
+                      return (
+                        <ImportPreviewRow
+                          key={item.importKey}
+                          item={item}
+                          checked={checked}
+                          onToggle={() => setSelectedImportKeys((current) => checked ? current.filter((value) => value !== item.importKey) : [...current, item.importKey])}
+                        />
+                      );
+                    })}
+                    {trades.length === 0 && !previewQuery.isFetching ? (
+                      <tr>
+                        <td colSpan={11} className="px-4 py-10 text-center text-sm text-muted">No Upstox trades found for this selection.</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted">Imported trades are created with broker notes and can be edited afterward in EdgeLog.</p>
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose} className="rounded-2xl border border-border px-5 py-3 text-sm text-muted">Cancel</button>
+                <button type="button" onClick={() => importMutation.mutate()} disabled={!accountId || selectedImportKeys.length === 0 || importMutation.isPending} className="mono rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-50">
+                  {importMutation.isPending ? "Importing..." : `Import selected (${selectedImportKeys.length})`}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ImportPreviewRow({ item, checked, onToggle }: { item: UpstoxImportPreviewTrade; checked: boolean; onToggle: () => void }) {
+  return (
+    <tr className="border-t border-border/80">
+      <td className="px-4 py-3">
+        <input type="checkbox" checked={checked} disabled={item.imported} onChange={onToggle} />
+      </td>
+      <td className="mono px-4 py-3 text-primary">{item.symbol}</td>
+      <td className="px-4 py-3"><span className={classNames("rounded-full px-3 py-1 text-xs", item.direction === "long" ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss")}>{item.direction === "long" ? "Long" : "Short"}</span></td>
+      <td className="px-4 py-3 text-muted">{item.assetClass}</td>
+      <td className="mono px-4 py-3 text-primary">{formatCurrency(item.entryPrice)}</td>
+      <td className="mono px-4 py-3 text-primary">{item.exitPrice !== null ? formatCurrency(item.exitPrice) : "-"}</td>
+      <td className="mono px-4 py-3 text-primary">{item.size}</td>
+      <td className="px-4 py-3 text-muted">{formatDateTime(item.entryDate)}</td>
+      <td className="px-4 py-3 text-muted">{item.exitDate ? formatDateTime(item.exitDate) : "Open"}</td>
+      <td className="px-4 py-3">
+        <span className={classNames("rounded-full px-3 py-1 text-xs", item.imported ? "bg-accent/10 text-accent" : item.status === "closed" ? "bg-profit/10 text-profit" : "bg-surface text-muted")}>{item.imported ? "Imported" : item.status === "closed" ? "Closed" : "Open"}</span>
+      </td>
+      <td className="mono px-4 py-3 text-muted">{item.legCount}</td>
+    </tr>
+  );
+}
+function TradeFormModal({ trade, accounts, onClose }: { trade: Trade | null; accounts: AccountOption[]; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"entry" | "notes">("entry");
   const [files, setFiles] = useState<File[]>([]);
@@ -358,9 +579,9 @@ function TradeFormModal({ trade, accounts, onClose }: { trade: Trade | null; acc
           <div className="card-surface rounded-3xl p-5">
             <p className="mono text-xs uppercase tracking-[0.3em] text-accent">Live preview</p>
             <div className="mt-5 space-y-4">
-              <PreviewRow label="P&L ?" value={formatCurrency(pnlPreview.dollar)} tone={pnlPreview.dollar >= 0 ? "profit" : "loss"} />
+              <PreviewRow label="P&L INR" value={formatCurrency(pnlPreview.dollar)} tone={pnlPreview.dollar >= 0 ? "profit" : "loss"} />
               <PreviewRow label="P&L %" value={formatPercent(pnlPreview.percent)} tone={pnlPreview.percent >= 0 ? "profit" : "loss"} />
-              <PreviewRow label="Risk ?" value={formatCurrency(riskPreview.dollar)} />
+              <PreviewRow label="Risk INR" value={formatCurrency(riskPreview.dollar)} />
               <PreviewRow label="R multiple" value={rPreview.toFixed(2)} />
             </div>
           </div>
@@ -387,8 +608,3 @@ function PreviewRow({ label, value, tone }: { label: string; value: string; tone
     </div>
   );
 }
-
-
-
-
-

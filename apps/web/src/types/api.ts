@@ -237,6 +237,41 @@ export interface UpstoxConnection {
   updated_at: string;
 }
 
+export interface UpstoxImportPreviewTrade {
+  importKey: string;
+  source: "UPSTOX";
+  symbol: string;
+  assetClass: "equity" | "future" | "option";
+  direction: "long" | "short";
+  size: number;
+  entryPrice: number;
+  exitPrice: number | null;
+  entryDate: string;
+  exitDate: string | null;
+  status: "closed" | "open";
+  legCount: number;
+  brokerTradeIds: string[];
+  imported: boolean;
+  importedTradeId: string | null;
+}
+
+export interface UpstoxTradeImportPreviewResponse {
+  source: "UPSTOX";
+  mode: "day" | "range";
+  startDate: string | null;
+  endDate: string | null;
+  trades: UpstoxImportPreviewTrade[];
+}
+
+export interface UpstoxTradeImportRunResponse {
+  imported: Array<{ tradeId: string; importKey: string; symbol: string }>;
+  summary: {
+    requested: number;
+    imported: number;
+    skipped: number;
+  };
+}
+
 export interface UpstoxStatusResponse {
   connected: boolean;
   connection: UpstoxConnection | null;
@@ -380,6 +415,7 @@ export interface MarketOptionChainPayload {
   heatmapRows: MarketOptionHeatmapRow[];
   rows: MarketOptionChainRow[];
 }
+
 
 
 
