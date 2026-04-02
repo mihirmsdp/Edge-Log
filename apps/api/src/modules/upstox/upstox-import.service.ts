@@ -439,7 +439,7 @@ export async function getUpstoxImportPreview(userId: string, query: UpstoxImport
       const existing = existingImports.get(item.importKey);
       return {
         ...item,
-        imported: Boolean(existing),
+        imported: Boolean(existing?.imported_trade_id),
         importedTradeId: existing?.imported_trade_id ?? null
       };
     })
@@ -516,3 +516,4 @@ export async function importUpstoxTrades(client: TradeClient, userId: string, pa
     }
   };
 }
+
