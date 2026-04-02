@@ -490,7 +490,7 @@ export async function importUpstoxTrades(client: TradeClient, userId: string, pa
       throw tradeError ?? new ApiError(400, "Unable to import Upstox trade");
     }
 
-    const { error: importError } = await admin.from("broker_trade_imports").insert({
+    const { error: importError } = await admin.from("broker_trade_imports").upsert({
       user_id: userId,
       broker: "UPSTOX",
       import_key: item.importKey,
@@ -498,6 +498,8 @@ export async function importUpstoxTrades(client: TradeClient, userId: string, pa
       imported_trade_id: trade.id,
       raw_payload: toJson({ source: item.source, brokerTradeIds: item.brokerTradeIds }),
       normalized_payload: toJson(item)
+    }, {
+      onConflict: "user_id,broker,import_key"
     });
 
     if (importError) {
@@ -516,4 +518,5 @@ export async function importUpstoxTrades(client: TradeClient, userId: string, pa
     }
   };
 }
+
 
