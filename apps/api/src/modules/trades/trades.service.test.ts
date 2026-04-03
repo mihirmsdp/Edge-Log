@@ -4,7 +4,7 @@ import { buildTradeInsertPayload, buildTradeUpdatePayload } from "./trades.servi
 const baseInput = {
   accountId: "account-1",
   symbol: "nifty",
-  assetClass: "option",
+  assetClass: "option" as const,
   direction: "long" as const,
   entryPrice: 100,
   exitPrice: 120,
@@ -15,9 +15,9 @@ const baseInput = {
   entryDate: "2026-04-01T09:15:00.000Z",
   exitDate: "2026-04-01T09:45:00.000Z",
   setupName: "Breakout",
-  timeframe: "5m",
-  session: "open",
-  emotion: "calm",
+  timeframe: "m5" as const,
+  session: "asia" as const,
+  emotion: "calm" as const,
   mistakes: "none",
   notes: "planned",
   rating: 4
@@ -39,17 +39,17 @@ describe("buildTradeUpdatePayload", () => {
     expect(
       buildTradeUpdatePayload({
         ...baseInput,
-        exitPrice: undefined,
-        stopLoss: undefined,
-        takeProfit: undefined,
-        exitDate: undefined,
-        setupName: undefined,
-        timeframe: undefined,
-        session: undefined,
-        emotion: undefined,
-        mistakes: undefined,
-        notes: undefined,
-        rating: undefined
+        exitPrice: null,
+        stopLoss: null,
+        takeProfit: null,
+        exitDate: null,
+        setupName: null,
+        timeframe: null,
+        session: null,
+        emotion: null,
+        mistakes: null,
+        notes: null,
+        rating: null
       })
     ).toMatchObject({
       exit_price: null,

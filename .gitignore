@@ -6,6 +6,7 @@ build
 .cache
 .DS_Store
 coverage
+apps/web/test-results
 .env
 .env.local
 apps/api/generated

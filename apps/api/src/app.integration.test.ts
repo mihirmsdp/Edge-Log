@@ -58,6 +58,11 @@ vi.mock("./modules/analytics/analytics.service.js", () => ({
 
 const { app } = await import("./app.js");
 
+function getSetCookieHeader(response: { headers: Record<string, string | string[] | undefined> }) {
+  const value = response.headers["set-cookie"];
+  return Array.isArray(value) ? value : value ? [value] : [];
+}
+
 function createTradeCreationSupabase(freshTrade: Record<string, unknown>) {
   const state: {
     insertedTradePayload?: Record<string, unknown>;
@@ -260,8 +265,8 @@ describe("api app integration", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.user.email).toBe("trader@example.com");
-    expect(response.headers["set-cookie"]?.join(";")).toContain("edgelog_access_token=access-1");
-    expect(response.headers["set-cookie"]?.join(";")).toContain("edgelog_refresh_token=refresh-1");
+    expect(getSetCookieHeader(response).join(";")).toContain("edgelog_access_token=access-1");
+    expect(getSetCookieHeader(response).join(";")).toContain("edgelog_refresh_token=refresh-1");
   });
 
   it("refreshes a session from the refresh token cookie", async () => {
@@ -279,8 +284,8 @@ describe("api app integration", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.refreshSession).toHaveBeenCalledWith({ refresh_token: "refresh-old" });
-    expect(response.headers["set-cookie"]?.join(";")).toContain("edgelog_access_token=access-2");
-    expect(response.headers["set-cookie"]?.join(";")).toContain("edgelog_refresh_token=refresh-2");
+    expect(getSetCookieHeader(response).join(";")).toContain("edgelog_access_token=access-2");
+    expect(getSetCookieHeader(response).join(";")).toContain("edgelog_refresh_token=refresh-2");
   });
 
   it("signs out and clears session cookies", async () => {
@@ -294,8 +299,8 @@ describe("api app integration", () => {
       refresh_token: "refresh-old"
     });
     expect(mocks.signOut).toHaveBeenCalled();
-    expect(response.headers["set-cookie"]?.join(";")).toContain("edgelog_access_token=");
-    expect(response.headers["set-cookie"]?.join(";")).toContain("edgelog_refresh_token=");
+    expect(getSetCookieHeader(response).join(";")).toContain("edgelog_access_token=");
+    expect(getSetCookieHeader(response).join(";")).toContain("edgelog_refresh_token=");
   });
 
   it("rejects protected routes without authentication", async () => {
@@ -426,3 +431,5 @@ describe("api app integration", () => {
     expect(mocks.buildSummary).toHaveBeenCalledWith({}, { assetClass: ["option"] });
   });
 });
+
+
