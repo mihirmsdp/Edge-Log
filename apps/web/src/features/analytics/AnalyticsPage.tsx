@@ -1,24 +1,58 @@
-﻿import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Scatter, ScatterChart, XAxis, YAxis } from "recharts";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import { api } from "@/services/api";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAnalyticsFiltersStore } from "@/store/filters";
-import { classNames, formatCurrency, formatPercent } from "@/lib/format";
+import { classNames, formatCurrency, formatDate, formatPercent } from "@/lib/format";
 
-const assetClasses = ["stock", "forex", "futures", "options", "crypto", "cfd", "index"];
+const pnlChartConfig = {
+  pnl: { label: "P&L", color: "var(--accent)" },
+  cumulativePnl: { label: "Cumulative P&L", color: "var(--accent)" },
+  drawdownPct: { label: "Drawdown", color: "var(--loss)" },
+  winRate: { label: "Win rate", color: "var(--accent)" },
+  pnlDollar: { label: "P&L", color: "var(--accent)" },
+} satisfies ChartConfig;
 
 function toParams(filters: ReturnType<typeof useAnalyticsFiltersStore.getState>) {
   const params = new URLSearchParams();
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
-  if (filters.symbol) params.set("symbol", filters.symbol);
   if (filters.direction) params.set("direction", filters.direction);
-  filters.assetClass.forEach((value) => params.append("assetClass", value));
   return params;
 }
 
-function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={classNames("dashboard-panel", className)}>{children}</section>;
+function parseFilterDate(value: string) {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toFilterDate(date: Date | undefined) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatFilterDate(value: string) {
+  if (!value) return "Select date";
+  return formatDate(value, { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function Panel({ children, className = "", ...props }: React.ComponentProps<"section">) {
+  return <section className={classNames("dashboard-panel", className)} {...props}>{children}</section>;
 }
 
 function SectionHeading({ eyebrow, title, note }: { eyebrow: string; title: string; note?: string }) {
@@ -26,44 +60,100 @@ function SectionHeading({ eyebrow, title, note }: { eyebrow: string; title: stri
     <div>
       <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">{eyebrow}</p>
       <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">{title}</h3>
-      {note ? <p className="mt-2 text-sm text-muted">{note}</p> : null}
+      {note ? <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>{note}</p> : null}
     </div>
   );
 }
 
 function InsightCard({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "neutral" | "profit" | "loss" }) {
   return (
-    <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-muted">{label}</p>
-      <p className={classNames("mono mt-3 text-2xl font-semibold tracking-[-0.05em]", tone === "profit" ? "text-profit" : tone === "loss" ? "text-loss" : "text-primary")}>{value}</p>
+    <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-3 py-3.5">
+      <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className={classNames("mono mt-2 text-xl font-semibold tracking-[-0.04em]", tone === "profit" ? "text-profit" : tone === "loss" ? "text-loss" : "text-primary")}>{value}</p>
     </div>
   );
 }
 
 function ChartShell({ title, note, children, className = "" }: { title: string; note?: string; children: React.ReactNode; className?: string }) {
   return (
-    <Panel className={classNames("p-5 md:p-6", className)}>
+    <Panel className={classNames("p-4 md:p-4.5", className)}>
       <div className="flex items-start justify-between gap-4">
         <SectionHeading eyebrow="Analytics" title={title} note={note} />
       </div>
-      <div className="mt-6 h-80">{children}</div>
+      <div className="mt-4 h-60">{children}</div>
     </Panel>
   );
 }
 
-function chartTooltipStyle() {
-  return {
-    background: "var(--dashboard-tooltip)",
-    border: "1px solid var(--border)",
-    borderRadius: "18px",
-    color: "var(--text-primary)",
-    boxShadow: "var(--shadow-glow)"
-  } as const;
+function DateFilterField({
+  label,
+  value,
+  open,
+  onOpenChange,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => onOpenChange(!open)}
+        className="h-12 w-full justify-between rounded-2xl border-border bg-surface px-4 text-primary hover:bg-[color:var(--dashboard-chip)]"
+      >
+        <span className="inline-flex items-center gap-2">
+          <CalendarDays className="h-4 w-4" />
+          <span className="text-primary" style={!value ? { color: "var(--text-muted)" } : undefined}>{formatFilterDate(value)}</span>
+        </span>
+        <ChevronDown className={classNames("h-4 w-4 transition-transform", open ? "rotate-180" : "rotate-0")} />
+      </Button>
+      {open ? (
+        <div className="absolute left-0 top-[calc(100%+0.5rem)] z-30 rounded-[22px] border border-border bg-[color:var(--dashboard-tooltip)] p-3 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+            {value ? (
+              <button type="button" onClick={() => { onChange(""); onOpenChange(false); }} className="text-xs text-accent">
+                Clear
+              </button>
+            ) : null}
+          </div>
+          <Calendar
+            mode="single"
+            selected={parseFilterDate(value)}
+            onSelect={(date) => {
+              onChange(toFilterDate(date));
+              onOpenChange(false);
+            }}
+            className="rounded-lg bg-transparent p-0"
+            classNames={{
+              root: "bg-transparent p-0",
+              month: "w-full",
+              month_caption: "flex h-10 items-center justify-center px-10",
+              caption_label: "text-sm font-medium text-primary",
+              nav: "absolute inset-x-0 top-0 flex items-center justify-between px-1",
+              button_previous: "h-8 w-8 rounded-xl border border-border bg-transparent p-0 text-primary hover:bg-[color:var(--dashboard-chip)]",
+              button_next: "h-8 w-8 rounded-xl border border-border bg-transparent p-0 text-primary hover:bg-[color:var(--dashboard-chip)]",
+              weekday: "text-center text-[11px] uppercase tracking-[0.18em] text-muted-foreground",
+              day_button: "h-10 w-10 rounded-2xl border border-transparent bg-transparent text-sm font-medium transition data-[selected-single=true]:bg-[color:var(--dashboard-chip)] data-[selected-single=true]:text-primary",
+              today: "[&>button]:ring-1 [&>button]:ring-accent/40",
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function AnalyticsPage() {
   const filters = useAnalyticsFiltersStore();
-  const params = useMemo(() => toParams(filters), [filters.from, filters.to, filters.symbol, filters.direction, filters.assetClass.join(",")]);
+  const [openDateField, setOpenDateField] = useState<"from" | "to" | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const params = useMemo(() => toParams(filters), [filters.from, filters.to, filters.direction]);
   const summaryQuery = useQuery({ queryKey: ["analytics-summary", params.toString()], queryFn: () => api.getAnalyticsSummary(params) });
   const byDayQuery = useQuery({ queryKey: ["analytics-day", params.toString()], queryFn: () => api.getAnalyticsByDay(params) });
   const drawdownQuery = useQuery({ queryKey: ["analytics-drawdown", params.toString()], queryFn: () => api.getAnalyticsDrawdown(params) });
@@ -71,7 +161,7 @@ export function AnalyticsPage() {
   const durationQuery = useQuery({ queryKey: ["analytics-duration", params.toString()], queryFn: () => api.getAnalyticsDuration(params) });
 
   const loading = summaryQuery.isLoading || byDayQuery.isLoading || drawdownQuery.isLoading || rollingQuery.isLoading || durationQuery.isLoading;
-  const activeFilterCount = Number(Boolean(filters.from)) + Number(Boolean(filters.to)) + Number(Boolean(filters.symbol)) + Number(Boolean(filters.direction)) + filters.assetClass.length;
+  const activeFilterCount = Number(Boolean(filters.from)) + Number(Boolean(filters.to)) + Number(Boolean(filters.direction));
 
   return (
     <div className="space-y-6 pb-10">
@@ -79,10 +169,10 @@ export function AnalyticsPage() {
         <div>
           <p className="mono text-xs uppercase tracking-[0.35em] text-accent">Analytics</p>
           <h2 className="mt-3 text-4xl font-bold tracking-[-0.05em] text-primary md:text-5xl">Pattern detection lab</h2>
-          <p className="mt-3 max-w-2xl text-sm text-muted md:text-base">A quieter analytics workspace for finding what actually moves your edge.</p>
+          <p className="mt-3 max-w-2xl text-sm md:text-base" style={{ color: "var(--text-muted)" }}>A quieter analytics workspace for finding what actually moves your edge.</p>
         </div>
         <Panel className="p-4 lg:min-w-[320px]">
-          <p className="text-xs uppercase tracking-[0.22em] text-muted">Filter state</p>
+          <p className="text-xs uppercase tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>Filter state</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             <InsightCard label="Active filters" value={String(activeFilterCount)} />
             <InsightCard label="Avg win" value={formatCurrency(summaryQuery.data?.avgWin ?? 0)} tone="profit" />
@@ -91,49 +181,76 @@ export function AnalyticsPage() {
         </Panel>
       </div>
 
-      <Panel className="sticky top-4 z-20 p-4 md:p-5">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <SectionHeading eyebrow="Filters" title="Global view controls" note="Every chart below responds to these filters in real time." />
-            <button type="button" onClick={() => filters.reset()} className="inline-flex w-fit items-center rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-3 text-sm text-muted transition hover:border-accent hover:text-primary">
-              Reset filters
-            </button>
+      <Panel className="sticky top-4 z-20 p-3 md:p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="mono text-[11px] uppercase tracking-[0.28em] text-accent/80">Filters</p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="text-base font-semibold text-primary">Global view controls</p>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Every chart below responds in real time.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenDateField(null);
+                  setFiltersOpen((current) => !current);
+                }}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-surface text-primary transition hover:bg-[color:var(--dashboard-chip)]"
+                aria-expanded={filtersOpen}
+                aria-controls="analytics-filters-panel"
+                aria-label={filtersOpen ? "Collapse filters" : "Expand filters"}
+              >
+                <ChevronDown className={classNames("h-4 w-4 transition-transform", filtersOpen ? "rotate-180" : "rotate-0")} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenDateField(null);
+                  filters.reset();
+                }}
+                className="inline-flex h-10 items-center rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 text-sm text-primary transition hover:border-accent hover:bg-[color:var(--dashboard-subtle)]"
+              >
+                Reset filters
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-4">
-            <input type="date" value={filters.from} onChange={(event) => filters.setField("from", event.target.value)} className="field" />
-            <input type="date" value={filters.to} onChange={(event) => filters.setField("to", event.target.value)} className="field" />
-            <input value={filters.symbol} onChange={(event) => filters.setField("symbol", event.target.value)} placeholder="Search symbol" className="field" />
-            <select value={filters.direction} onChange={(event) => filters.setField("direction", event.target.value)} className="field">
-              <option value="">All directions</option>
-              <option value="long">Long</option>
-              <option value="short">Short</option>
-            </select>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {assetClasses.map((item) => {
-              const selected = filters.assetClass.includes(item);
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => filters.toggleAssetClass(item)}
-                  className={classNames(
-                    "rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                    selected ? "border-accent bg-accent/10 text-accent" : "border-border bg-[color:var(--dashboard-chip)] text-muted hover:border-accent/40 hover:text-primary"
-                  )}
-                >
-                  {item}
-                </button>
-              );
-            })}
-          </div>
+          {filtersOpen ? (
+            <div id="analytics-filters-panel" className="grid gap-3 xl:grid-cols-[1fr_1fr_220px]">
+              <DateFilterField
+                label="From"
+                value={filters.from}
+                open={openDateField === "from"}
+                onOpenChange={(open) => setOpenDateField(open ? "from" : null)}
+                onChange={(value) => filters.setField("from", value)}
+              />
+              <DateFilterField
+                label="To"
+                value={filters.to}
+                open={openDateField === "to"}
+                onOpenChange={(open) => setOpenDateField(open ? "to" : null)}
+                onChange={(value) => filters.setField("to", value)}
+              />
+              <Select value={filters.direction || "all"} onValueChange={(value) => filters.setField("direction", value === "all" ? "" : value)}>
+                <SelectTrigger className="h-12 rounded-2xl border-border bg-surface px-4 text-primary">
+                  <SelectValue placeholder="All directions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All directions</SelectItem>
+                  <SelectItem value="long">Long</SelectItem>
+                  <SelectItem value="short">Short</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
         </div>
       </Panel>
 
       {loading ? (
-        <Panel className="p-8 text-sm text-muted">Loading analytics...</Panel>
+        <Panel className="p-8 text-sm" style={{ color: "var(--text-muted)" }}>Loading analytics...</Panel>
       ) : (
         <>
           <div className="grid gap-6 xl:grid-cols-2">
@@ -143,15 +260,8 @@ export function AnalyticsPage() {
             <ChartShell title="Hold duration vs P&L" note="Whether longer holds improve or damage trade outcomes."><DurationScatter data={durationQuery.data ?? []} /></ChartShell>
           </div>
 
-          <ChartShell title="Avg win vs avg loss" note="A compact comparison of your typical positive and negative outcomes.">
-            <BarChartBox
-              data={[
-                { label: "Avg Win", value: summaryQuery.data?.avgWin ?? 0 },
-                { label: "Avg Loss", value: -(summaryQuery.data?.avgLoss ?? 0) }
-              ]}
-              xKey="label"
-              barKey="value"
-            />
+          <ChartShell title="Cumulative P&L trend" note="Track how the filtered trade set compounds over time.">
+            <CumulativeTrendChart data={summaryQuery.data?.equityCurve ?? []} />
           </ChartShell>
         </>
       )}
@@ -161,61 +271,79 @@ export function AnalyticsPage() {
 
 function BarChartBox({ data, xKey, barKey }: { data: Array<Record<string, string | number>>; xKey: string; barKey: string }) {
   return (
-    <ResponsiveContainer>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="var(--dashboard-grid)" strokeDasharray="3 6" vertical={false} />
-        <XAxis dataKey={xKey} stroke="var(--text-muted)" tickLine={false} axisLine={false} />
-        <YAxis stroke="var(--text-muted)" tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={chartTooltipStyle()} labelStyle={{ color: "var(--text-primary)" }} itemStyle={{ color: "var(--text-primary)" }} formatter={(value: number) => formatCurrency(value)} />
-        <Bar dataKey={barKey} radius={[10, 10, 0, 0]}>
+    <ChartContainer config={pnlChartConfig}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barCategoryGap="42%">
+        <CartesianGrid stroke="var(--dashboard-grid)" vertical={false} strokeDasharray="2 6" />
+        <XAxis dataKey={xKey} tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} tickMargin={8} width={96} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />} />
+        <Bar dataKey={barKey} radius={[6, 6, 0, 0]} maxBarSize={22}>
           {data.map((item, index) => <Cell key={index} fill={Number(item[barKey]) >= 0 ? "var(--profit)" : "var(--loss)"} />)}
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
 function DrawdownChart({ data }: { data: Array<{ date: string; drawdownPct: number }> }) {
   return (
-    <ResponsiveContainer>
-      <AreaChart data={data} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="var(--dashboard-grid)" strokeDasharray="3 6" vertical={false} />
-        <XAxis dataKey="date" stroke="var(--text-muted)" tickLine={false} axisLine={false} />
-        <YAxis stroke="var(--text-muted)" tickFormatter={(value) => formatPercent(Number(value))} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={chartTooltipStyle()} labelStyle={{ color: "var(--text-primary)" }} itemStyle={{ color: "var(--text-primary)" }} formatter={(value: number) => formatPercent(value)} />
-        <Area dataKey="drawdownPct" stroke="var(--loss)" fill="var(--loss)" fillOpacity={0.18} />
+    <ChartContainer config={pnlChartConfig}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="var(--dashboard-grid)" vertical={false} strokeDasharray="2 6" />
+        <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <YAxis tickFormatter={(value) => formatPercent(Number(value))} tickLine={false} axisLine={false} tickMargin={8} width={78} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatPercent(Number(value))} />} />
+        <Area dataKey="drawdownPct" stroke="var(--loss)" fill="var(--loss)" fillOpacity={0.12} strokeWidth={2} />
       </AreaChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
 function RollingChart({ data }: { data: Array<{ date: string; winRate: number }> }) {
   return (
-    <ResponsiveContainer>
-      <LineChart data={data} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="var(--dashboard-grid)" strokeDasharray="3 6" vertical={false} />
-        <XAxis dataKey="date" stroke="var(--text-muted)" tickLine={false} axisLine={false} />
-        <YAxis stroke="var(--text-muted)" tickFormatter={(value) => formatPercent(Number(value))} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={chartTooltipStyle()} labelStyle={{ color: "var(--text-primary)" }} itemStyle={{ color: "var(--text-primary)" }} formatter={(value: number) => formatPercent(value)} />
-        <Line dataKey="winRate" stroke="var(--accent)" dot={false} strokeWidth={2.5} />
+    <ChartContainer config={pnlChartConfig}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="var(--dashboard-grid)" vertical={false} strokeDasharray="2 6" />
+        <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <YAxis tickFormatter={(value) => formatPercent(Number(value))} tickLine={false} axisLine={false} tickMargin={8} width={78} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatPercent(Number(value))} />} />
+        <Line dataKey="winRate" stroke="var(--accent)" dot={false} strokeWidth={2} />
       </LineChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
 function DurationScatter({ data }: { data: Array<{ holdMinutes: number; pnlDollar: number; direction: string }> }) {
   return (
-    <ResponsiveContainer>
-      <ScatterChart margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="var(--dashboard-grid)" strokeDasharray="3 6" />
-        <XAxis type="number" dataKey="holdMinutes" name="Hold minutes" stroke="var(--text-muted)" tickLine={false} axisLine={false} />
-        <YAxis type="number" dataKey="pnlDollar" name="P&L" stroke="var(--text-muted)" tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={chartTooltipStyle()} labelStyle={{ color: "var(--text-primary)" }} itemStyle={{ color: "var(--text-primary)" }} cursor={{ strokeDasharray: "3 3" }} formatter={(value: number, name) => name === "pnlDollar" ? formatCurrency(value) : value} />
-        <Scatter data={data}>
+    <ChartContainer config={pnlChartConfig}>
+      <ScatterChart margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="var(--dashboard-grid)" strokeDasharray="2 6" />
+        <XAxis type="number" dataKey="holdMinutes" name="Hold minutes" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <YAxis type="number" dataKey="pnlDollar" name="P&L" tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} tickMargin={8} width={96} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => name === "pnlDollar" ? formatCurrency(Number(value)) : String(value)} />} cursor={{ strokeDasharray: "2 6" }} />
+        <Scatter data={data} fill="var(--accent)">
           {data.map((entry, index) => <Cell key={index} fill={entry.pnlDollar >= 0 ? "var(--profit)" : "var(--loss)"} />)}
         </Scatter>
       </ScatterChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
+
+function CumulativeTrendChart({ data }: { data: Array<{ date: string; cumulativePnl: number }> }) {
+  return (
+    <ChartContainer config={pnlChartConfig}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="var(--dashboard-grid)" vertical={false} strokeDasharray="2 6" />
+        <XAxis dataKey="date" tickFormatter={(value) => formatDate(String(value), { day: "2-digit", month: "short" })} tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} tickMargin={8} width={96} tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+        <ChartTooltip content={<ChartTooltipContent labelFormatter={(label) => formatDate(String(label))} formatter={(value) => formatCurrency(Number(value))} />} />
+        <Area dataKey="cumulativePnl" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.12} strokeWidth={2} />
+      </AreaChart>
+    </ChartContainer>
+  );
+}
+
+
+
+
 

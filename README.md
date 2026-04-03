@@ -32,6 +32,7 @@ EdgeLog is a trading journal web app for active traders. It combines a React fro
 - Rolling top movers ticker built from Upstox NIFTY 50 quote data
 - Market Mode with sector heatmap and Option Pro workspace
 - Upstox account connection flow through OAuth
+- Manual trade import from Upstox with preview, pairing, selection, and dedupe tracking
 - Multiple trading accounts with starting capital and computed current capital
 
 ## Project Structure
@@ -179,6 +180,7 @@ Apply migrations in this order:
 5. `005_premarket_analysis.sql`
 6. `006_postmarket_analysis.sql`
 7. `007_upstox_connections.sql`
+8. `008_broker_trade_imports.sql`
 
 Optional demo data:
 
@@ -279,6 +281,8 @@ Upstox:
 - `GET /api/v1/upstox/connect`
 - `GET /api/v1/upstox/callback`
 - `POST /api/v1/upstox/disconnect`
+- `GET /api/v1/upstox/imports/trades`
+- `POST /api/v1/upstox/imports/trades`
 
 ## Deployment Notes
 
@@ -295,3 +299,5 @@ Upstox:
 - AI journal responses are cached in Supabase to avoid unnecessary Gemini calls.
 - During market hours, the journal card shows live NIFTY price rather than a generated analysis.
 - The market strip and movers ticker use Upstox read-only market data with backend caching.
+
+

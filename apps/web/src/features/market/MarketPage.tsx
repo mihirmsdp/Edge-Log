@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { API_BASE, api } from "@/services/api";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { classNames, formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 
 import { useLocation } from "react-router-dom";
@@ -86,49 +87,53 @@ function SectorHeatTile({
   const borderColor = positive ? `rgba(34,197,94,${0.25 + intensity * 0.35})` : `rgba(239,68,68,${0.25 + intensity * 0.35})`;
 
   return (
-    <div className="rounded-[24px] border p-5 transition hover:-translate-y-0.5" style={{ backgroundColor: background, borderColor }}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-base font-medium text-primary">{sector}</p>
-          <p className="mt-1 text-xs text-muted">{advancing} up / {declining} down / {total} names</p>
+    <Card size="sm" className="gap-0 rounded-[22px] border px-0 py-0 transition hover:-translate-y-0.5" style={{ backgroundColor: background, borderColor }}>
+      <CardContent className="px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-base font-medium text-primary">{sector}</p>
+            <p className="mt-1 text-xs text-muted">{advancing} up / {declining} down / {total} names</p>
+          </div>
+          <div className={classNames("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium", positive ? "bg-profit/12 text-profit" : "bg-loss/12 text-loss")}>
+            <ArrowIcon positive={positive} />
+            <span className="mono">{Math.abs(changePercent).toFixed(2)}%</span>
+          </div>
         </div>
-        <div className={classNames("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium", positive ? "bg-profit/12 text-profit" : "bg-loss/12 text-loss")}>
-          <ArrowIcon positive={positive} />
-          <span className="mono">{Math.abs(changePercent).toFixed(2)}%</span>
+        <div className="mt-6 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Leaders</p>
+            <p className="mono mt-2 text-sm text-primary">{leaders.join(" / ")}</p>
+          </div>
+          <div className="flex gap-1.5">
+            {Array.from({ length: Math.min(total, 6) }).map((_, index) => {
+              const active = index < advancing;
+              const down = !active && index < advancing + declining;
+              return (
+                <span
+                  key={`${sector}-${index}`}
+                  className={classNames(
+                    "h-9 w-2 rounded-full",
+                    active ? "bg-profit" : down ? "bg-loss" : "bg-border"
+                  )}
+                />
+              );
+            })}
+          </div>
         </div>
-      </div>
-      <div className="mt-6 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Leaders</p>
-          <p className="mono mt-2 text-sm text-primary">{leaders.join(" / ")}</p>
-        </div>
-        <div className="flex gap-1.5">
-          {Array.from({ length: Math.min(total, 6) }).map((_, index) => {
-            const active = index < advancing;
-            const down = !active && index < advancing + declining;
-            return (
-              <span
-                key={`${sector}-${index}`}
-                className={classNames(
-                  "h-9 w-2 rounded-full",
-                  active ? "bg-profit" : down ? "bg-loss" : "bg-border"
-                )}
-              />
-            );
-          })}
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function MetricCard({ label, value, helper }: { label: string; value: string; helper: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-      <p className="text-xs uppercase tracking-[0.22em] text-muted">{label}</p>
-      <p className="mono mt-3 text-2xl font-semibold text-primary">{value}</p>
-      <p className="mt-2 text-sm text-muted">{helper}</p>
-    </div>
+    <Card size="sm" className="gap-0 border-border bg-[color:var(--dashboard-chip)] py-0">
+      <CardContent className="px-4 py-3.5">
+        <p className="text-xs uppercase tracking-[0.22em] text-muted">{label}</p>
+        <p className="mono mt-2.5 text-xl font-semibold text-primary">{value}</p>
+        <p className="mt-2 text-sm text-muted">{helper}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -161,117 +166,140 @@ function MarketModeView() {
   return (
     <div className="space-y-6 md:space-y-7">
       <div className="grid gap-4 md:grid-cols-3">
-        <section className="dashboard-panel p-5">
-          <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Leader</p>
-          <h3 className="mt-3 text-xl font-semibold text-primary">Strongest sector</h3>
-          {strongestDistinctSector ? (
-            <>
-              <p className="mt-4 text-2xl font-semibold text-primary">{strongestDistinctSector.sector}</p>
-              <p className={classNames("mono mt-3 text-lg", strongestDistinctSector.changePercent >= 0 ? "text-profit" : "text-loss")}>{strongestDistinctSector.changePercent >= 0 ? "+" : ""}{strongestDistinctSector.changePercent.toFixed(2)}%</p>
-              <p className="mt-3 text-sm text-muted">Leaders: <span className="mono text-primary">{strongestDistinctSector.leaders.join(" / ")}</span></p>
-            </>
-          ) : <p className="mt-4 text-sm text-muted">Waiting for sector data.</p>}
-        </section>
+        <Card className="gap-0 border-border py-0">
+          <CardHeader className="px-5 py-4">
+            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Leader</p>
+            <CardTitle className="mt-2 text-xl font-semibold text-primary">Strongest sector</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-5 pt-0">
+            {strongestDistinctSector ? (
+              <>
+                <p className="text-2xl font-semibold text-primary">{strongestDistinctSector.sector}</p>
+                <p className={classNames("mono mt-2.5 text-lg", strongestDistinctSector.changePercent >= 0 ? "text-profit" : "text-loss")}>{strongestDistinctSector.changePercent >= 0 ? "+" : ""}{strongestDistinctSector.changePercent.toFixed(2)}%</p>
+                <p className="mt-2.5 text-sm text-muted">Leaders: <span className="mono text-primary">{strongestDistinctSector.leaders.join(" / ")}</span></p>
+              </>
+            ) : <p className="text-sm text-muted">Waiting for sector data.</p>}
+          </CardContent>
+        </Card>
 
-        <section className="dashboard-panel p-5">
-          <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Risk</p>
-          <h3 className="mt-3 text-xl font-semibold text-primary">Weakest sector</h3>
-          {weakestSector ? (
-            <>
-              <p className="mt-4 text-2xl font-semibold text-primary">{weakestSector.sector}</p>
-              <p className="mono mt-3 text-lg text-loss">{weakestSector.changePercent.toFixed(2)}%</p>
-              <p className="mt-3 text-sm text-muted">Leaders: <span className="mono text-primary">{weakestSector.leaders.join(" / ")}</span></p>
-            </>
-          ) : <p className="mt-4 text-sm text-muted">Waiting for sector data.</p>}
-        </section>
+        <Card className="gap-0 border-border py-0">
+          <CardHeader className="px-5 py-4">
+            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Risk</p>
+            <CardTitle className="mt-2 text-xl font-semibold text-primary">Weakest sector</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-5 pt-0">
+            {weakestSector ? (
+              <>
+                <p className="text-2xl font-semibold text-primary">{weakestSector.sector}</p>
+                <p className="mono mt-2.5 text-lg text-loss">{weakestSector.changePercent.toFixed(2)}%</p>
+                <p className="mt-2.5 text-sm text-muted">Leaders: <span className="mono text-primary">{weakestSector.leaders.join(" / ")}</span></p>
+              </>
+            ) : <p className="text-sm text-muted">Waiting for sector data.</p>}
+          </CardContent>
+        </Card>
 
-        <section className="dashboard-panel p-5">
-          <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Momentum</p>
-          <h3 className="mt-3 text-xl font-semibold text-primary">Top movers</h3>
-          <div className="mt-4 space-y-3">
-            {(topMoversQuery.data?.movers ?? []).slice(0, 4).map((mover) => (
-              <div key={mover.symbol} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-3 py-2.5">
-                <span className="mono text-sm text-primary">{mover.symbol}</span>
-                <div className="text-right">
-                  <p className="mono text-sm text-primary">{formatCurrency(mover.price)}</p>
-                  <p className="mono text-xs text-profit">+{mover.changePercent.toFixed(2)}%</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <Card className="gap-0 border-border py-0">
+          <CardHeader className="px-5 py-4">
+            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Momentum</p>
+            <CardTitle className="mt-2 text-xl font-semibold text-primary">Top movers</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-5 pt-0">
+            <div className="space-y-2.5">
+              {(topMoversQuery.data?.movers ?? []).slice(0, 4).map((mover) => (
+                <Card key={mover.symbol} size="sm" className="gap-0 border-border bg-[color:var(--dashboard-chip)] py-0">
+                  <CardContent className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <span className="mono text-sm text-primary">{mover.symbol}</span>
+                    <div className="text-right">
+                      <p className="mono text-sm text-primary">{formatCurrency(mover.price)}</p>
+                      <p className="mono text-xs text-profit">+{mover.changePercent.toFixed(2)}%</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <section className="dashboard-panel p-6 md:p-7">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Breadth</p>
-            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">Sector heatmap</h3>
-            <p className="mt-2 text-sm text-muted">Live NIFTY 50 sector strength from Upstox quotes. Track leadership, weakness, and where flow is concentrated before you lean on index futures or options.</p>
-          </div>
-          <div className="rounded-full border border-border bg-[color:var(--dashboard-chip)] px-3 py-1.5 text-xs text-muted">
-            {sectorHeatmapQuery.isFetching ? "Refreshing" : sectorHeatmapQuery.data?.cached ? "Cached 30s" : "Live snapshot"}
-          </div>
-        </div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {(sectorHeatmapQuery.data?.sectors ?? []).length > 0 ? (sectorHeatmapQuery.data?.sectors ?? []).map((tile) => (
-            <SectorHeatTile
-              key={tile.sector}
-              sector={tile.sector}
-              changePercent={tile.changePercent}
-              advancing={tile.advancing}
-              declining={tile.declining}
-              total={tile.total}
-              leaders={tile.leaders}
-            />
-          )) : (
-            <div className="rounded-2xl border border-border bg-[color:var(--dashboard-subtle)] p-5 text-sm text-muted sm:col-span-2 xl:col-span-4">
-              Market breadth is unavailable right now. Check the Upstox analytics token or try again in a moment.
+      <Card className="gap-0 border-border py-0">
+        <CardHeader className="px-6 py-5">
+          <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Breadth</p>
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="text-2xl font-semibold tracking-[-0.04em] text-primary">Sector heatmap</CardTitle>
+              <CardDescription className="mt-2 max-w-3xl text-sm text-muted">Live NIFTY 50 sector strength from Upstox quotes. Track leadership, weakness, and where flow is concentrated before you lean on index futures or options.</CardDescription>
             </div>
-          )}
-        </div>
-      </section>
+            <CardAction className="static">
+              <div className="rounded-full border border-border bg-[color:var(--dashboard-chip)] px-3 py-1.5 text-xs text-muted">
+                {sectorHeatmapQuery.isFetching ? "Refreshing" : sectorHeatmapQuery.data?.cached ? "Cached 30s" : "Live snapshot"}
+              </div>
+            </CardAction>
+          </div>
+        </CardHeader>
+        <CardContent className="px-6 pb-6 pt-0">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {(sectorHeatmapQuery.data?.sectors ?? []).length > 0 ? (sectorHeatmapQuery.data?.sectors ?? []).map((tile) => (
+              <SectorHeatTile
+                key={tile.sector}
+                sector={tile.sector}
+                changePercent={tile.changePercent}
+                advancing={tile.advancing}
+                declining={tile.declining}
+                total={tile.total}
+                leaders={tile.leaders}
+              />
+            )) : (
+              <Card size="sm" className="gap-0 border-border bg-[color:var(--dashboard-subtle)] py-0 sm:col-span-2 xl:col-span-4">
+                <CardContent className="px-5 py-4 text-sm text-muted">
+                  Market breadth is unavailable right now. Check the Upstox analytics token or try again in a moment.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-        <div className="dashboard-panel p-6">
-          <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Breadth</p>
-          <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">Market breadth snapshot</h3>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted">Advancing</p>
-              <p className="mono mt-3 text-2xl font-semibold text-profit">{advancingTotal}</p>
+        <Card className="gap-0 border-border py-0">
+          <CardHeader className="px-6 py-5">
+            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Breadth</p>
+            <CardTitle className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-primary">Market breadth snapshot</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 pb-6 pt-0">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MetricCard label="Advancing" value={String(advancingTotal)} helper="Stocks participating on the upside." />
+              <MetricCard label="Declining" value={String(decliningTotal)} helper="Names leaning against the tape." />
+              <MetricCard label="Flat" value={String(flatTotal)} helper="Symbols sitting near unchanged." />
             </div>
-            <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted">Declining</p>
-              <p className="mono mt-3 text-2xl font-semibold text-loss">{decliningTotal}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted">Flat</p>
-              <p className="mono mt-3 text-2xl font-semibold text-primary">{flatTotal}</p>
-            </div>
-          </div>
-          <div className="mt-4 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted">Leadership tape</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {strongestLeaders.length > 0 ? strongestLeaders.map((item: { sector: string; leader: string }) => (
-                <span key={`${item.sector}-${item.leader}`} className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs text-primary">
-                  <span className="mono text-profit">{item.leader}</span>
-                  <span className="text-muted">{item.sector}</span>
-                </span>
-              )) : <span className="text-sm text-muted">Waiting for leadership data.</span>}
-            </div>
-          </div>
-        </div>
+            <Card size="sm" className="mt-4 gap-0 border-border bg-[color:var(--dashboard-chip)] py-0">
+              <CardContent className="px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-muted">Leadership tape</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {strongestLeaders.length > 0 ? strongestLeaders.map((item: { sector: string; leader: string }) => (
+                    <span key={`${item.sector}-${item.leader}`} className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs text-primary">
+                      <span className="mono text-profit">{item.leader}</span>
+                      <span className="text-muted">{item.sector}</span>
+                    </span>
+                  )) : <span className="text-sm text-muted">Waiting for leadership data.</span>}
+                </div>
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
 
-        <div className="dashboard-panel p-6">
-          <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Use</p>
-          <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">How to read it</h3>
-          <div className="mt-5 space-y-4 text-sm text-muted">
-            <p>Look for broad green in Financials, IT, and Energy when deciding whether NIFTY strength has enough backing for continuation.</p>
-            <p>When a single sector carries the whole move, expect more false breakouts and weaker follow-through in index options.</p>
-            <p>Use strongest and weakest sectors as a quick shortlist for relative-strength and relative-weakness trades.</p>
-          </div>
-        </div>
+        <Card className="gap-0 border-border py-0">
+          <CardHeader className="px-6 py-5">
+            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Use</p>
+            <CardTitle className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-primary">How to read it</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 pb-6 pt-0">
+            <div className="space-y-4 text-sm text-muted">
+              <p>Look for broad green in Financials, IT, and Energy when deciding whether NIFTY strength has enough backing for continuation.</p>
+              <p>When a single sector carries the whole move, expect more false breakouts and weaker follow-through in index options.</p>
+              <p>Use strongest and weakest sectors as a quick shortlist for relative-strength and relative-weakness trades.</p>
+            </div>
+          </CardContent>
+        </Card>
       </section>
     </div>
   );
@@ -693,7 +721,7 @@ function OptionProView() {
           </div>
           <div className="mt-6 h-64 md:h-72">
             <ResponsiveContainer>
-              <BarChart data={changeOiChartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }} barGap={6}>
+              <BarChart data={changeOiChartData} margin={{ top: 10, right: 8, left: 8, bottom: 0 }} barGap={10}>
                 <CartesianGrid stroke="var(--dashboard-grid)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
                   type="number"
@@ -703,9 +731,9 @@ function OptionProView() {
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value: number) => formatCompact(Number(value))}
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 10, fill: "var(--text-muted)" }}
                 />
-                <YAxis stroke="var(--text-muted)" tickLine={false} axisLine={false} tickFormatter={(value: number) => formatCompact(Number(value))} tick={{ fontSize: 11 }} width={64} />
+                <YAxis stroke="var(--text-muted)" tickLine={false} axisLine={false} tickFormatter={(value: number) => formatCompact(Number(value))} tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={76} />
                 {payload?.summary.spot ? (
                   <ReferenceLine
                     x={payload.summary.spot}
@@ -883,7 +911,30 @@ export function MarketPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="mono text-xs uppercase tracking-[0.35em] text-accent">Market Mode</p>
-          <h2 className="mt-3 text-4xl font-bold tracking-[-0.05em] text-primary md:text-5xl">Live market workspace</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <h2 className="text-4xl font-bold tracking-[-0.05em] text-primary md:text-5xl">Live market workspace</h2>
+            {upstoxConnection ? (
+              <button
+                type="button"
+                onClick={() => disconnectUpstoxMutation.mutate()}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-[color:var(--dashboard-chip)] px-3.5 py-2 text-sm font-medium text-primary transition hover:border-loss disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={disconnectUpstoxMutation.isPending}
+              >
+                <PlugIcon />
+                Disconnect Upstox
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={connectUpstox}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-[color:var(--dashboard-chip)] px-3.5 py-2 text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!upstoxEnabled || upstoxConfigQuery.isLoading}
+              >
+                <PlugIcon />
+                Connect Upstox
+              </button>
+            )}
+          </div>
           <p className="mt-3 max-w-3xl text-sm text-muted md:text-base">Switch between broad market context and the dedicated options trader workspace without leaving the same screen.</p>
         </div>
         <div className="inline-flex rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-1">
@@ -920,58 +971,12 @@ export function MarketPage() {
         </div>
       ) : null}
 
-      <section className="dashboard-panel p-5 md:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Broker</p>
-            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">Upstox connection</h3>
-            <p className="mt-2 max-w-2xl text-sm text-muted">Connect your Upstox account to enable broker-linked workflows inside EdgeLog, while keeping your main app auth unchanged.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {upstoxConnection ? (
-              <button
-                type="button"
-                onClick={() => disconnectUpstoxMutation.mutate()}
-                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-3 text-sm font-medium text-primary transition hover:border-loss disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={disconnectUpstoxMutation.isPending}
-              >
-                <PlugIcon />
-                Disconnect
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={connectUpstox}
-                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-3 text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={!upstoxEnabled || upstoxConfigQuery.isLoading}
-              >
-                <PlugIcon />
-                Connect Upstox
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted">Status</p>
-            <p className="mt-3 text-base font-semibold text-primary">{upstoxConnection ? "Connected" : upstoxEnabled ? "Not connected" : "OAuth not configured"}</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted">Broker user</p>
-            <p className="mt-3 text-base font-semibold text-primary">{upstoxConnection?.upstox_user_name ?? upstoxConnection?.upstox_user_id ?? "-"}</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-[color:var(--dashboard-chip)] p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted">Connected at</p>
-            <p className="mt-3 text-base font-semibold text-primary">{upstoxConnection?.connected_at ? formatDateTime(upstoxConnection.connected_at) : "-"}</p>
-          </div>
-        </div>
-      </section>
 
       {mode === "market" ? <MarketModeView /> : <OptionProView />}
     </div>
   );
 }
+
 
 
 

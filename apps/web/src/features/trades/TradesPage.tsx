@@ -4,7 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api } from "@/services/api";
+import { ChevronDown } from "lucide-react";
+import { API_BASE, api } from "@/services/api";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Trade, UpstoxImportPreviewTrade } from "@/types/api";
 import { classNames, formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/format";
 import { calcHoldTime, calcPnL, calcRMultiple, calcRisk } from "@/utils/calc";
@@ -96,6 +99,7 @@ export function TradesPage() {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const params = useMemo(() => {
     const next = new URLSearchParams({ page: String(page), pageSize: "25", sortBy, sortOrder });
@@ -154,85 +158,116 @@ export function TradesPage() {
           <button type="button" onClick={() => setImportModalOpen(true)} className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-primary">
             <span className="inline-flex items-center gap-2"><ImportIcon />Import from Upstox</span>
           </button>
-          <button type="button" onClick={() => deleteMutation.mutate(selected)} disabled={selected.length === 0 || deleteMutation.isPending} className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted disabled:opacity-50">
+          <button type="button" onClick={() => deleteMutation.mutate(selected)} disabled={selected.length === 0 || deleteMutation.isPending} className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-primary hover:bg-[color:var(--dashboard-chip)] disabled:opacity-50">
             Delete selected ({selected.length})
           </button>
           <button type="button" onClick={openCreate} className="mono rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-[var(--accent-contrast)]">New trade</button>
         </div>
       </div>
-      <section className="card-surface rounded-3xl p-5">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-          <input type="date" value={filters.from} onChange={(event) => { setFilters((current) => ({ ...current, from: event.target.value })); setPage(1); }} className="rounded-2xl border border-border bg-surface px-4 py-3" />
-          <input type="date" value={filters.to} onChange={(event) => { setFilters((current) => ({ ...current, to: event.target.value })); setPage(1); }} className="rounded-2xl border border-border bg-surface px-4 py-3" />
-          <select value={filters.assetClass} onChange={(event) => { setFilters((current) => ({ ...current, assetClass: event.target.value })); setPage(1); }} className="rounded-2xl border border-border bg-surface px-4 py-3">
-            <option value="">All asset classes</option>
-            {assetClasses.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <input value={filters.symbol} onChange={(event) => { setFilters((current) => ({ ...current, symbol: event.target.value })); setPage(1); }} placeholder="Search symbol" className="rounded-2xl border border-border bg-surface px-4 py-3" />
-          <select value={filters.direction} onChange={(event) => { setFilters((current) => ({ ...current, direction: event.target.value })); setPage(1); }} className="rounded-2xl border border-border bg-surface px-4 py-3">
-            <option value="">All directions</option>
-            <option value="long">Long</option>
-            <option value="short">Short</option>
-          </select>
-          <select value={filters.tagId} onChange={(event) => { setFilters((current) => ({ ...current, tagId: event.target.value })); setPage(1); }} className="rounded-2xl border border-border bg-surface px-4 py-3">
-            <option value="">All tags</option>
-            {(tagsQuery.data?.tags ?? []).map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
-          </select>
-        </div>
-      </section>
+      <Card className="rounded-[28px] border border-border/80 bg-transparent py-0 shadow-none">
+        <CardHeader className="px-5 py-4 md:px-6">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((current) => !current)}
+            className="flex w-full items-center justify-between gap-4 rounded-2xl text-left text-primary"
+            aria-expanded={filtersOpen}
+            aria-controls="trade-log-filters"
+          >
+            <div>
+              <CardTitle className="text-base text-primary">Filters</CardTitle>
+              <CardDescription>Refine by date, instrument, direction, or tag.</CardDescription>
+            </div>
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-surface text-primary transition hover:bg-[color:var(--dashboard-chip)]">
+              <ChevronDown className={classNames("h-4 w-4 transition-transform", filtersOpen ? "rotate-180" : "rotate-0")} />
+            </span>
+          </button>
+        </CardHeader>
+        {filtersOpen ? (
+          <CardContent id="trade-log-filters" className="border-t border-border/70 px-5 py-5 md:px-6">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+              <input type="date" value={filters.from} onChange={(event) => { setFilters((current) => ({ ...current, from: event.target.value })); setPage(1); }} className="h-12 rounded-2xl border border-border bg-surface px-4 text-primary shadow-none outline-none transition focus:border-accent" />
+              <input type="date" value={filters.to} onChange={(event) => { setFilters((current) => ({ ...current, to: event.target.value })); setPage(1); }} className="h-12 rounded-2xl border border-border bg-surface px-4 text-primary shadow-none outline-none transition focus:border-accent" />
+              <select value={filters.assetClass} onChange={(event) => { setFilters((current) => ({ ...current, assetClass: event.target.value })); setPage(1); }} className="h-12 rounded-2xl border border-border bg-surface px-4 text-primary outline-none transition focus:border-accent">
+                <option value="">All asset classes</option>
+                {assetClasses.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+              <input value={filters.symbol} onChange={(event) => { setFilters((current) => ({ ...current, symbol: event.target.value })); setPage(1); }} placeholder="Search symbol" className="h-12 rounded-2xl border border-border bg-surface px-4 text-primary shadow-none outline-none transition placeholder:text-muted focus:border-accent" />
+              <select value={filters.direction} onChange={(event) => { setFilters((current) => ({ ...current, direction: event.target.value })); setPage(1); }} className="h-12 rounded-2xl border border-border bg-surface px-4 text-primary outline-none transition focus:border-accent">
+                <option value="">All directions</option>
+                <option value="long">Long</option>
+                <option value="short">Short</option>
+              </select>
+              <select value={filters.tagId} onChange={(event) => { setFilters((current) => ({ ...current, tagId: event.target.value })); setPage(1); }} className="h-12 rounded-2xl border border-border bg-surface px-4 text-primary outline-none transition focus:border-accent">
+                <option value="">All tags</option>
+                {(tagsQuery.data?.tags ?? []).map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
+              </select>
+            </div>
+          </CardContent>
+        ) : null}
+      </Card>
 
       <section className="card-surface overflow-hidden rounded-3xl">
-        <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full min-w-[1300px] text-left text-sm">
-            <thead className="bg-surface text-muted">
-              <tr>
-                <th className="px-4 py-3"><input type="checkbox" checked={selected.length > 0 && selected.length === trades.length} onChange={(event) => setSelected(event.target.checked ? trades.map((trade) => trade.id) : [])} /></th>
-                {[
-                  ["entryDate", "Date"], ["symbol", "Symbol"], ["direction", "Direction"], ["entryPrice", "Entry"], ["exitPrice", "Exit"], ["size", "Size"], ["netPnl", "P&L INR"], ["netPnlPercent", "P&L %"], ["rrMultiple", "R-multiple"], ["hold", "Hold time"], ["setupName", "Setup"], ["rating", "Rating"]
-                ].map(([key, label]) => (
-                  <th key={key} className="px-4 py-3">
-                    <button type="button" onClick={() => key !== "netPnlPercent" && key !== "hold" ? toggleSort(key) : undefined} className="flex items-center gap-2">
-                      {label}
-                      {sortBy === key && <span className="mono text-accent">{sortOrder === "asc" ? "\u2191" : "\u2193"}</span>}
-                    </button>
-                  </th>
-                ))}
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trades.map((trade) => {
-                const pnlPercent = trade.entry_price && trade.exit_price ? calcPnL(trade.entry_price, trade.exit_price, 1, trade.direction, 0).percent : 0;
-                const profitable = (trade.net_pnl ?? 0) >= 0;
-                return (
-                  <tr key={trade.id} className="border-t border-border/80" style={{ borderLeft: `4px solid ${profitable ? "#22c55e" : "#ef4444"}` }}>
-                    <td className="px-4 py-3"><input type="checkbox" checked={selected.includes(trade.id)} onChange={() => setSelected((current) => current.includes(trade.id) ? current.filter((id) => id !== trade.id) : [...current, trade.id])} /></td>
-                    <td className="px-4 py-3 text-muted">{formatDate(trade.entry_date)}</td>
-                    <td className="mono px-4 py-3">{trade.symbol}</td>
-                    <td className="px-4 py-3"><span className={classNames("rounded-full px-3 py-1 text-xs", trade.direction === "long" ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss")}>{trade.direction === "long" ? "Long" : "Short"}</span></td>
-                    <td className="mono px-4 py-3">{formatCurrency(trade.entry_price)}</td>
-                    <td className="mono px-4 py-3">{trade.exit_price ? formatCurrency(trade.exit_price) : "-"}</td>
-                    <td className="mono px-4 py-3">{trade.size}</td>
-                    <td className={classNames("mono px-4 py-3", profitable ? "text-profit" : "text-loss")}>{formatCurrency(trade.net_pnl)}</td>
-                    <td className={classNames("mono px-4 py-3", profitable ? "text-profit" : "text-loss")}>{formatPercent(pnlPercent)}</td>
-                    <td className="mono px-4 py-3">{(trade.rr_multiple ?? 0).toFixed(2)}</td>
-                    <td className="mono px-4 py-3">{calcHoldTime(trade.entry_date, trade.exit_date)}</td>
-                    <td className="px-4 py-3 text-muted">{trade.setup_name ?? "-"}</td>
-                    <td className="px-4 py-3"><div className="flex items-center gap-1">{renderStars(trade.rating)}</div></td>
-                    <td className="px-4 py-3">
-                      <button type="button" onClick={() => openEdit(trade)} className="text-accent">Edit</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between border-t border-border px-5 py-4 text-sm text-muted">
+        <Table className="min-w-[1300px] text-left text-sm text-primary">
+          <TableHeader className="bg-[color:var(--dashboard-chip)] [&_tr]:border-b-border/80">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="px-4 py-3">
+                <input type="checkbox" checked={selected.length > 0 && selected.length === trades.length} onChange={(event) => setSelected(event.target.checked ? trades.map((trade) => trade.id) : [])} />
+              </TableHead>
+              {[
+                ["entryDate", "Date"], ["symbol", "Symbol"], ["direction", "Direction"], ["entryPrice", "Entry"], ["exitPrice", "Exit"], ["size", "Size"], ["netPnl", "P&L INR"], ["netPnlPercent", "P&L %"], ["rrMultiple", "R-multiple"], ["hold", "Hold time"], ["setupName", "Setup"], ["rating", "Rating"]
+              ].map(([key, label]) => (
+                <TableHead key={key} className="px-4 py-3 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>
+                  <button
+                    type="button"
+                    onClick={() => key !== "netPnlPercent" && key !== "hold" ? toggleSort(key) : undefined}
+                    className="flex items-center gap-2 text-left text-primary"
+                  >
+                    <span>{label}</span>
+                    {sortBy === key ? <span className="mono text-accent">{sortOrder === "asc" ? "\u2191" : "\u2193"}</span> : null}
+                  </button>
+                </TableHead>
+              ))}
+              <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {trades.map((trade) => {
+              const pnlPercent = trade.entry_price && trade.exit_price ? calcPnL(trade.entry_price, trade.exit_price, 1, trade.direction, 0).percent : 0;
+              const profitable = (trade.net_pnl ?? 0) >= 0;
+              return (
+                <TableRow
+                  key={trade.id}
+                  className="border-b border-border/70 hover:bg-[color:var(--dashboard-subtle)]"
+                  style={{ borderLeft: `4px solid ${profitable ? "#22c55e" : "#ef4444"}` }}
+                >
+                  <TableCell className="px-4 py-3">
+                    <input type="checkbox" checked={selected.includes(trade.id)} onChange={() => setSelected((current) => current.includes(trade.id) ? current.filter((id) => id !== trade.id) : [...current, trade.id])} />
+                  </TableCell>
+                  <TableCell className="px-4 py-3" style={{ color: "var(--text-muted)" }}>{formatDate(trade.entry_date)}</TableCell>
+                  <TableCell className="mono px-4 py-3 text-base font-medium text-primary">{trade.symbol}</TableCell>
+                  <TableCell className="px-4 py-3"><span className={classNames("rounded-full px-3 py-1 text-xs", trade.direction === "long" ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss")}>{trade.direction === "long" ? "Long" : "Short"}</span></TableCell>
+                  <TableCell className="mono px-4 py-3 text-primary">{formatCurrency(trade.entry_price)}</TableCell>
+                  <TableCell className="mono px-4 py-3 text-primary">{trade.exit_price ? formatCurrency(trade.exit_price) : "-"}</TableCell>
+                  <TableCell className="mono px-4 py-3 text-primary">{trade.size}</TableCell>
+                  <TableCell className={classNames("mono px-4 py-3 font-medium", profitable ? "text-profit" : "text-loss")}>{formatCurrency(trade.net_pnl)}</TableCell>
+                  <TableCell className={classNames("mono px-4 py-3 font-medium", profitable ? "text-profit" : "text-loss")}>{formatPercent(pnlPercent)}</TableCell>
+                  <TableCell className="mono px-4 py-3 text-primary">{(trade.rr_multiple ?? 0).toFixed(2)}</TableCell>
+                  <TableCell className="mono px-4 py-3" style={{ color: "var(--text-muted)" }}>{calcHoldTime(trade.entry_date, trade.exit_date)}</TableCell>
+                  <TableCell className="px-4 py-3" style={{ color: "var(--text-muted)" }}>{trade.setup_name ?? "-"}</TableCell>
+                  <TableCell className="px-4 py-3"><div className="flex items-center gap-1">{renderStars(trade.rating)}</div></TableCell>
+                  <TableCell className="px-4 py-3">
+                    <button type="button" onClick={() => openEdit(trade)} className="text-sm font-medium text-accent">Edit</button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        <div className="flex items-center justify-between border-t border-border px-5 py-4 text-sm" style={{ color: "var(--text-muted)" }}>
           <span>Page {pagination?.page ?? 1} of {pagination?.totalPages ?? 1}</span>
           <div className="flex gap-2">
-            <button type="button" disabled={(pagination?.page ?? 1) <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-xl border border-border px-3 py-2 disabled:opacity-50">Prev</button>
-            <button type="button" disabled={(pagination?.page ?? 1) >= (pagination?.totalPages ?? 1)} onClick={() => setPage((current) => current + 1)} className="rounded-xl border border-border px-3 py-2 disabled:opacity-50">Next</button>
+            <button type="button" disabled={(pagination?.page ?? 1) <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-xl border border-border px-3 py-2 text-primary disabled:opacity-50">Prev</button>
+            <button type="button" disabled={(pagination?.page ?? 1) >= (pagination?.totalPages ?? 1)} onClick={() => setPage((current) => current + 1)} className="rounded-xl border border-border px-3 py-2 text-primary disabled:opacity-50">Next</button>
           </div>
         </div>
       </section>
@@ -279,6 +314,12 @@ function TradeImportModal({ accounts, upstoxConnected, onClose }: { accounts: Ac
     return params;
   }, [mode, startDate, endDate]);
 
+  const upstoxConfigQuery = useQuery({
+    queryKey: ["upstox-config"],
+    queryFn: api.getUpstoxConfig,
+    retry: false
+  });
+
   const previewQuery = useQuery({
     queryKey: ["upstox-trade-import-preview", previewParams.toString()],
     queryFn: () => api.getUpstoxTradeImportPreview(previewParams),
@@ -307,6 +348,11 @@ function TradeImportModal({ accounts, upstoxConnected, onClose }: { accounts: Ac
     }
   });
 
+  const upstoxEnabled = upstoxConfigQuery.data?.enabled ?? false;
+  const connectUpstox = () => {
+    window.location.href = `${API_BASE}/upstox/connect?returnTo=${encodeURIComponent("/trades")}`;
+  };
+
   const trades = previewQuery.data?.trades ?? [];
   const selectableTrades = trades.filter((item) => !item.imported);
   const importedTrades = trades.filter((item) => item.imported);
@@ -319,14 +365,35 @@ function TradeImportModal({ accounts, upstoxConnected, onClose }: { accounts: Ac
           <div>
             <p className="mono text-xs uppercase tracking-[0.32em] text-accent">Broker Import</p>
             <h3 className="mt-2 text-2xl font-semibold">Import from Upstox</h3>
-            <p className="mt-2 max-w-2xl text-sm text-muted">Pull broker executions, review how they were paired, and only bring the trades you actually want into your journal.</p>
+            <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--text-muted)" }}>Pull broker executions, review how they were paired, and only bring the trades you actually want into your journal.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-2xl border border-border px-3 py-2 text-muted">Close</button>
+          <button type="button" onClick={onClose} className="rounded-2xl border border-border px-3 py-2 text-primary hover:bg-[color:var(--dashboard-chip)]">Close</button>
         </div>
 
         {!upstoxConnected ? (
-          <div className="mt-6 rounded-3xl border border-loss/30 bg-loss/10 px-5 py-5 text-sm text-loss">
-            Connect Upstox from the Market page first, then come back here to import broker trades.
+          <div className="mt-6 rounded-3xl border border-border bg-surface/80 p-5">
+            <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent">Broker connection</p>
+            <h4 className="mt-2 text-lg font-semibold text-primary">Connect Upstox to import trades</h4>
+            <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--text-muted)" }}>
+              Broker import needs an active Upstox connection. You can connect right here and come back to this import flow immediately.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={connectUpstox}
+                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-[color:var(--dashboard-chip)] px-4 py-3 text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!upstoxEnabled || upstoxConfigQuery.isLoading}
+              >
+                <ImportIcon />
+                Connect Upstox
+              </button>
+              <button type="button" onClick={onClose} className="rounded-2xl border border-border px-4 py-3 text-sm text-primary hover:bg-[color:var(--dashboard-chip)]">
+                Close
+              </button>
+            </div>
+            {!upstoxEnabled && !upstoxConfigQuery.isLoading ? (
+              <p className="mt-3 text-sm text-loss">Upstox OAuth is not configured right now.</p>
+            ) : null}
           </div>
         ) : (
           <>
@@ -481,7 +548,7 @@ function TradeImportModal({ accounts, upstoxConnected, onClose }: { accounts: Ac
                 <p className="mt-1 text-sm text-muted">They keep broker context in notes, and you can edit mistakes, rating, screenshots, or anything else afterward.</p>
               </div>
               <div className="flex gap-3">
-                <button type="button" onClick={onClose} className="rounded-2xl border border-border px-5 py-3 text-sm text-muted">Cancel</button>
+                <button type="button" onClick={onClose} className="rounded-2xl border border-border px-5 py-3 text-sm text-primary hover:bg-[color:var(--dashboard-chip)]">Cancel</button>
                 <button type="button" onClick={() => importMutation.mutate()} disabled={!accountId || selectedImportKeys.length === 0 || importMutation.isPending} className="mono rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-[var(--accent-contrast)] shadow-[0_12px_30px_rgba(0,229,255,0.18)] disabled:opacity-50">
                   {importMutation.isPending ? "Importing..." : `Import selected (${selectedImportKeys.length})`}
                 </button>
@@ -645,7 +712,7 @@ function TradeFormModal({ trade, accounts, onClose }: { trade: Trade | null; acc
             <h3 className="text-2xl font-semibold">{trade ? "Edit trade" : "Log a trade"}</h3>
             <p className="text-sm text-muted">Capture execution details and review notes in one place.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-2xl border border-border px-3 py-2 text-muted">Close</button>
+          <button type="button" onClick={onClose} className="rounded-2xl border border-border px-3 py-2 text-primary hover:bg-[color:var(--dashboard-chip)]">Close</button>
         </div>
         <div className="mt-6 flex flex-wrap gap-2">
           {[
@@ -691,7 +758,7 @@ function TradeFormModal({ trade, accounts, onClose }: { trade: Trade | null; acc
 
             <div className="flex gap-3">
               <button type="submit" className="mono rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-[var(--accent-contrast)]">{mutation.isPending ? "Saving..." : trade ? "Update trade" : "Save trade"}</button>
-              <button type="button" onClick={onClose} className="rounded-2xl border border-border px-5 py-3 text-sm text-muted">Cancel</button>
+              <button type="button" onClick={onClose} className="rounded-2xl border border-border px-5 py-3 text-sm text-primary hover:bg-[color:var(--dashboard-chip)]">Cancel</button>
             </div>
           </form>
 
@@ -727,6 +794,13 @@ function PreviewRow({ label, value, tone }: { label: string; value: string; tone
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 
