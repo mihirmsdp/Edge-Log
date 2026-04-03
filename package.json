@@ -13,7 +13,10 @@
                     "test":  "npm run test --workspace @edgelog/web \u0026\u0026 npm run test --workspace @edgelog/api",
                     "test:web":  "npm run test --workspace @edgelog/web",
                     "test:api":  "npm run test --workspace @edgelog/api",
-                    "test:e2e":  "npm run test:e2e --workspace @edgelog/web"
+                    "test:e2e":  "npm run test:e2e --workspace @edgelog/web",
+                    "typecheck":  "npm run typecheck --workspace @edgelog/web \u0026\u0026 npm run typecheck --workspace @edgelog/api",
+                    "build":  "npm run build --workspace @edgelog/web \u0026\u0026 npm run build --workspace @edgelog/api",
+                    "ci":  "npm run typecheck \u0026\u0026 npm run test \u0026\u0026 npm run build \u0026\u0026 npm run test:e2e"
                 },
     "devDependencies":  {
                             "concurrently":  "^9.1.2"
