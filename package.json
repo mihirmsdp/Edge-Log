@@ -1,17 +1,21 @@
 {
-  "name": "edgelog",
-  "private": true,
-  "version": "0.1.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:web": "npm run dev --workspace @edgelog/web",
-    "dev:api": "npm run dev --workspace @edgelog/api"
-  },
-  "devDependencies": {
-    "concurrently": "^9.1.2"
-  }
+    "name":  "edgelog",
+    "private":  true,
+    "version":  "0.1.0",
+    "workspaces":  [
+                       "apps/*",
+                       "packages/*"
+                   ],
+    "scripts":  {
+                    "dev":  "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
+                    "dev:web":  "npm run dev --workspace @edgelog/web",
+                    "dev:api":  "npm run dev --workspace @edgelog/api",
+                    "test":  "npm run test --workspace @edgelog/web \u0026\u0026 npm run test --workspace @edgelog/api",
+                    "test:web":  "npm run test --workspace @edgelog/web",
+                    "test:api":  "npm run test --workspace @edgelog/api",
+                    "test:e2e":  "npm run test:e2e --workspace @edgelog/web"
+                },
+    "devDependencies":  {
+                            "concurrently":  "^9.1.2"
+                        }
 }
