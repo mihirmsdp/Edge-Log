@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   BookOpen,
@@ -212,6 +212,7 @@ function AppSidebar({
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { theme, toggleTheme } = useTheme();
 
@@ -219,7 +220,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const signOut = useMutation({
     mutationFn: api.signOut,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["session"] });
+      await queryClient.cancelQueries({ queryKey: ["session"] });
+      queryClient.setQueryData(["session"], { user: null });
+      navigate("/login", { replace: true });
     },
   });
 
@@ -245,7 +248,6 @@ function AppShell({ children }: { children: React.ReactNode }) {
           collapsed={false}
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
-
           onToggleTheme={toggleTheme}
           onSignOut={() => signOut.mutate()}
           theme={theme}
@@ -273,8 +275,8 @@ function ProtectedApp() {
 
 export function App() {
   const location = useLocation();
-  const sessionQuery = useQuery({ queryKey: ["session"], queryFn: api.getSession, retry: false });
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+  const sessionQuery = useQuery({ queryKey: ["session"], queryFn: api.getSession, retry: false, enabled: !isAuthPage });
 
   if (sessionQuery.isLoading) {
     return <div className="flex min-h-screen items-center justify-center" style={{ color: "var(--text-muted)" }}>Loading EdgeLog...</div>;
@@ -298,11 +300,5 @@ export function App() {
     </Routes>
   );
 }
-
-
-
-
-
-
 
 
