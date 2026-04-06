@@ -466,15 +466,25 @@ function OptionProView() {
     void optionChainQuery.refetch();
   };
 
-  const changeOiChartData = (payload?.rows ?? []).map((row) => ({
-    strike: row.strikePrice,
+  const heatmapRows = payload?.heatmapRows ?? [];
+  const changeOiChartData = (heatmapRows.length > 0 ? heatmapRows : (payload?.rows ?? []).map((row) => ({
+    strikePrice: row.strikePrice,
     callChangeOi: row.call.changeOi ?? 0,
     putChangeOi: row.put.changeOi ?? 0
+  }))).map((row) => ({
+    strike: row.strikePrice,
+    callChangeOi: row.callChangeOi ?? 0,
+    putChangeOi: row.putChangeOi ?? 0
   }));
+  const totalCallChangeOi = changeOiChartData.reduce((sum, row) => sum + row.callChangeOi, 0);
+  const totalPutChangeOi = changeOiChartData.reduce((sum, row) => sum + row.putChangeOi, 0);
+  const minOiChange = Math.min(0, ...changeOiChartData.flatMap((row) => [row.callChangeOi, row.putChangeOi]));
+  const maxOiChange = Math.max(0, ...changeOiChartData.flatMap((row) => [row.callChangeOi, row.putChangeOi]));
+  const oiChartDomainMax = maxOiChange > 0 ? Math.ceil(maxOiChange * 1.08) : 1;
+  const oiChartDomainMin = Math.min(minOiChange < 0 ? Math.floor(minOiChange * 1.08) : 0, -Math.ceil(oiChartDomainMax * 0.2));
   const supportLevels = payload?.supportResistance.support ?? [];
   const resistanceLevels = payload?.supportResistance.resistance ?? [];
   const buildup = payload?.buildup;
-  const heatmapRows = payload?.heatmapRows ?? [];
   const maxCallOi = Math.max(1, ...heatmapRows.map((row) => row.callOi ?? 0));
   const maxPutOi = Math.max(1, ...heatmapRows.map((row) => row.putOi ?? 0));
   const sentimentTone = buildup?.sentiment === "Bullish"
@@ -707,7 +717,7 @@ function OptionProView() {
             <div>
               <p className="mono text-[11px] uppercase tracking-[0.3em] text-accent/80">Flow</p>
               <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-primary">Change in OI</h3>
-              <p className="mt-2 text-sm text-muted">Green bars show call change in OI, red bars show put change in OI around ATM. Dashed cyan line marks spot context.</p>
+              <p className="mt-2 text-sm text-muted">A strike-by-strike dOI view around ATM with a spot marker and positive/negative read like the reference layout.</p>
             </div>
             <button
               type="button"
@@ -719,31 +729,61 @@ function OptionProView() {
               <RefreshIcon spinning={optionChainQuery.isFetching} />
             </button>
           </div>
-          <div className="mt-6 h-64 md:h-72">
+          <div className="mt-5 flex items-center justify-center">
+            <div className="grid w-full max-w-2xl grid-cols-3 gap-6 text-center">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Spot</p>
+                <p className="mono mt-1 text-base font-semibold text-primary md:text-lg">{payload?.summary.spot ? formatCurrency(payload.summary.spot) : "-"}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Call change</p>
+                <p className="mono mt-1 text-base font-semibold md:text-lg" style={{ color: "#1696a7" }}>{formatOiLakhs(totalCallChangeOi)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Put change</p>
+                <p className="mono mt-1 text-base font-semibold md:text-lg" style={{ color: "#e05a2b" }}>{formatOiLakhs(totalPutChangeOi)}</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 h-72 md:h-80">
             <ResponsiveContainer>
-              <BarChart data={changeOiChartData} margin={{ top: 10, right: 8, left: 8, bottom: 0 }} barGap={10}>
-                <CartesianGrid stroke="var(--dashboard-grid)" strokeDasharray="3 6" vertical={false} />
+              <BarChart data={changeOiChartData} margin={{ top: 22, right: 12, left: 8, bottom: 10 }} barCategoryGap="2%" barGap={2}>
+                <CartesianGrid stroke="var(--dashboard-grid)" vertical={false} />
                 <XAxis
-                  type="number"
                   dataKey="strike"
-                  domain={["dataMin - 50", "dataMax + 50"]}
+                  stroke="var(--text-muted)"
+                  tickLine={false}
+                  axisLine={{ stroke: "var(--border)" }}
+                  tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                  interval={0}
+                  minTickGap={2}
+                  tickFormatter={(value: number) => value % 100 === 0 ? String(value) : ""}
+                />
+                <YAxis
                   stroke="var(--text-muted)"
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value: number) => formatCompact(Number(value))}
-                  tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+                  domain={[oiChartDomainMin, oiChartDomainMax]}
+                  tickFormatter={(value: number) => formatOiLakhs(value)}
+                  tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                  width={72}
                 />
-                <YAxis stroke="var(--text-muted)" tickLine={false} axisLine={false} tickFormatter={(value: number) => formatCompact(Number(value))} tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={76} />
-                {payload?.summary.spot ? (
+                <ReferenceLine y={0} stroke="var(--border)" />
+                {payload?.summary.atmStrike ? (
                   <ReferenceLine
-                    x={payload.summary.spot}
-                    stroke="var(--accent)"
-                    strokeDasharray="4 4"
-                    label={{ value: `Spot ${formatCurrency(payload.summary.spot)}`, position: "insideTopRight", fill: "var(--accent)", fontSize: 11 }}
+                    x={payload.summary.atmStrike}
+                    stroke="#6b7280"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: `Spot price: ${formatCurrency(payload.summary.spot ?? payload.summary.atmStrike)}`,
+                      position: "top",
+                      fill: "var(--text-primary)",
+                      fontSize: 11
+                    }}
                   />
                 ) : null}
                 <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                  cursor={{ fill: "rgba(255,255,255,0.025)" }}
                   contentStyle={{
                     background: "var(--dashboard-tooltip)",
                     border: "1px solid var(--border)",
@@ -754,12 +794,23 @@ function OptionProView() {
                   labelStyle={{ color: "var(--text-primary)" }}
                   itemStyle={{ color: "var(--text-primary)" }}
                   labelFormatter={(value) => `Strike ${formatCurrency(Number(value))}`}
-                  formatter={(value: number) => formatCompact(value)}
+                  formatter={(value: number, name: string) => [formatOiLakhs(value), name]}
                 />
-                <Bar dataKey="callChangeOi" name="Call dOI" fill="var(--profit)" radius={[6, 6, 0, 0]} maxBarSize={22} />
-                <Bar dataKey="putChangeOi" name="Put dOI" fill="var(--loss)" radius={[6, 6, 0, 0]} maxBarSize={22} />
+                <Bar dataKey="callChangeOi" name="Call OI" fill="#1696a7" radius={[2, 2, 0, 0]} barSize={16} maxBarSize={16} />
+                <Bar dataKey="putChangeOi" name="Put OI" fill="#e05a2b" radius={[2, 2, 0, 0]} barSize={16} maxBarSize={16} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-[color:var(--dashboard-chip)] px-3 py-1.5">
+              <span className="h-3 w-3 rounded-sm bg-[#1696a7]" />
+              Call OI
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-[color:var(--dashboard-chip)] px-3 py-1.5">
+              <span className="h-3 w-3 rounded-sm bg-[#e05a2b]" />
+              Put OI
+            </span>
+            <span className="mono">{payload?.fetchedAt ? formatDateTime(payload.fetchedAt) : "Live snapshot"}</span>
           </div>
         </section>
       </div>
@@ -853,6 +904,18 @@ function formatCompact(value: number | null | undefined) {
     maximumFractionDigits: Math.abs(value) >= 1000 ? 0 : 2,
     notation: Math.abs(value) >= 100000 ? "compact" : "standard"
   }).format(value);
+}
+
+function formatOiLakhs(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+
+  if (value === 0) {
+    return "0";
+  }
+
+  return `${(value / 100000).toFixed(2)} L`;
 }
 
 export function MarketPage() {

@@ -235,7 +235,7 @@ const CACHE_TTL_MS = 30_000;
 const INSTRUMENTS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const TOP_MOVER_COUNT = 10;
 const OPTION_LADDER_ROWS = 7;
-const OPTION_HEATMAP_ROWS = 11;
+const OPTION_HEATMAP_ROWS = 17;
 const SUPPORT_RESISTANCE_LEVELS = 3;
 
 const tickerConfig: TickerConfig[] = [
@@ -1124,6 +1124,7 @@ function emptyOptionChainPayload(expiries: string[] = [], selectedExpiry: string
     rows: []
   };
 }
+
 
 
 
