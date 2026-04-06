@@ -43,7 +43,14 @@ export function calcHoldTime(entryDate?: string | null, exitDate?: string | null
     return "Open";
   }
 
-  const minutes = Math.max(0, Math.round((new Date(exitDate).getTime() - new Date(entryDate).getTime()) / 60000));
+  const entryTime = new Date(entryDate).getTime();
+  const exitTime = new Date(exitDate).getTime();
+  const minutes = Math.max(0, Math.round((exitTime - entryTime) / 60000));
+
+  if (minutes === 0) {
+    return "Same day";
+  }
+
   if (minutes < 60) {
     return `${minutes}m`;
   }
