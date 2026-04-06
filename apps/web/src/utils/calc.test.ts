@@ -50,4 +50,9 @@ describe("calcHoldTime", () => {
     expect(calcHoldTime("2026-04-01T09:00:00.000Z", "2026-04-01T11:30:00.000Z")).toBe("2h 30m");
     expect(calcHoldTime("2026-04-01T09:00:00.000Z", "2026-04-03T09:00:00.000Z")).toBe("2d");
   });
+
+  it("shows same day when the trade has no intraday timestamp resolution", () => {
+    expect(calcHoldTime("2026-04-01T12:00:00.000Z", "2026-04-01T12:00:00.000Z")).toBe("Same day");
+  });
 });
+

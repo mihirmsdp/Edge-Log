@@ -121,6 +121,29 @@ function inferAssetClassFromSymbol(symbol: string) {
   return "equity" as const;
 }
 
+function buildHistoricalTradeSymbol(row: UpstoxHistoricalTradeRow) {
+  const symbol = row.symbol?.trim();
+  const scripName = row.scrip_name?.trim();
+  const optionType = row.option_type?.trim().toUpperCase();
+  const strikePrice = row.strike_price !== undefined && row.strike_price !== null ? String(row.strike_price).trim() : "";
+
+  if (row.segment === "FO") {
+    if (scripName) {
+      return scripName.toUpperCase();
+    }
+
+    if (symbol && optionType && strikePrice) {
+      return `${symbol} ${strikePrice} ${optionType}`.toUpperCase();
+    }
+
+    if (symbol && /FUT/i.test(optionType ?? "")) {
+      return `${symbol} FUT`.toUpperCase();
+    }
+  }
+
+  return (symbol ?? scripName ?? row.instrument_token ?? "UNKNOWN").toUpperCase();
+}
+
 function inferAssetClassFromHistoricalRow(row: UpstoxHistoricalTradeRow) {
   if (row.segment === "FO") {
     if (row.option_type === "CE" || row.option_type === "PE") {
@@ -130,7 +153,7 @@ function inferAssetClassFromHistoricalRow(row: UpstoxHistoricalTradeRow) {
     return "future" as const;
   }
 
-  return inferAssetClassFromSymbol(row.symbol ?? row.scrip_name ?? "");
+  return inferAssetClassFromSymbol(buildHistoricalTradeSymbol(row));
 }
 
 function normalizeDateOnly(value: string) {
@@ -247,7 +270,7 @@ function normalizeDayLegs(rows: UpstoxTradeForDayRow[]): NormalizedBrokerLeg[] {
 function normalizeHistoricalLegs(rows: UpstoxHistoricalTradeRow[]): NormalizedBrokerLeg[] {
   return rows
     .map((row) => {
-      const symbol = (row.symbol ?? row.scrip_name ?? row.instrument_token ?? "UNKNOWN").toUpperCase();
+      const symbol = buildHistoricalTradeSymbol(row);
       return {
         legId: row.trade_id,
         instrumentKey: row.instrument_token ?? `${symbol}:${row.expiry ?? "spot"}:${row.option_type ?? "na"}`,
